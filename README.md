@@ -1,4 +1,4 @@
-kriss_blog (version 2)
+kriss_blog (version 3)
 ======================
 
 A simple and smart (or stupid) blogging tool.
@@ -23,7 +23,18 @@ Features
   * BBCode allowed in comments
 * version 2
   * Cache pages
-  * CSS Simplification
+  * CSS simplification
+* version 3
+  * Comments moderation
+  * Autosave edition
+  * Private/future posting
+
+TODOs
+=====
+* enable cache with future posting
+* use tags
+* search in articles
+* personnalize moderation message in config
 
 Licence
 =======

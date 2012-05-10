@@ -24,7 +24,7 @@ define('DATA_FILE','data.php');
 define('CONFIG_FILE','config.php');
 define('STYLE_FILE','style.css');
 define('CACHE_DIR','cache');
-define('BLOG_VERSION',2);
+define('BLOG_VERSION',3);
 
 define('PHPPREFIX','<?php /* '); // Prefix to encapsulate data in php code.
 define('PHPSUFFIX',' */ ?>'); // Suffix to encapsulate data in php code.
@@ -63,7 +63,7 @@ class Blog_Conf
     public $url = '';
 
     // kriss_blog version
-    public $version = 0;
+    public $version;
 
     public function __construct($config_file,$version)
     {
@@ -228,7 +228,8 @@ class Blog_Conf
         return true;
     }
 }
-
+?>
+<?php
 
 class Blog_Page
 {
@@ -244,7 +245,7 @@ class Blog_Page
 }
 
 body {
-  font: Arial, Helvetica, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   background: #eee;
   color: #000;
   width:800px;
@@ -333,6 +334,7 @@ body {
   background: #999;
 }
 
+
 fieldset{
   padding: 1em;
 }
@@ -347,7 +349,6 @@ input[type=text], textarea{
   border: 1px solid #000;
   margin: .2em 0;
   padding: .2em;
-  font-family: Arial, Helvetica, sans-serif;
   font-size: 1em;
   width:100%;
 }
@@ -409,11 +410,13 @@ a:hover {
     <items>
       <rdf:Seq>
     ';
-
+	$today=time();
 	foreach ($list as $id=>$content)
 	{
-	    $str .= '    <rdf:li rdf:resource="'.MyTool::getUrl().'?'.$id.'" />
+	    if (!((!empty($content['private']) and $content['private']!=0) or $id > $today)){
+		$str .= '    <rdf:li rdf:resource="'.MyTool::getUrl().'?'.$id.'" />
     ';
+	    }
 	}
 	$str .= '  </rdf:Seq>
     </items>
@@ -421,7 +424,8 @@ a:hover {
 ';
 	foreach ($list as $id=>$content)
 	{
-	    $str .= 	 '
+	    if (!((!empty($content['private']) and $content['private']!=0) or $id > $today)){
+		$str .= 	 '
   <item rdf:about="'.MyTool::getUrl().'?'.$id.'">
       <title>'.strip_tags(MyTool::formatText($content['title'])).'</title>
       <link>'.MyTool::getUrl().'?'.$id.'</link>
@@ -434,6 +438,7 @@ a:hover {
           <![CDATA['.MyTool::formatText($content['text']).']]>
       </content:encoded>
   </item>';
+	    }
 	}
 
 	$str .= '
@@ -502,6 +507,45 @@ a:hover {
     }
     public function editPage($pb){
 	$str ='
+    <script>
+      var id="edit_form";
+      function saveForm(){
+        var f = document.getElementById(id);
+        var as;
+
+        for (var i=0, fO={};f.elements[i]; i++){
+          var e = f.elements[i];
+          if (e.type){
+            var t = e.type.toLowerCase();
+            if( t == "text" || t == "textarea" || t == "password" || t == "datetime" || t == "datetime-local" || t == "date" || t == "month" || t == "week" || t == "time" || t == "number" || t == "range" || t == "email" || t == "url" ) {
+              fO[e.name]=e.value;
+            } else if(( t == "radio" || t == "checkbox" ) && e.checked) {
+              fO[e.name]=e.value;
+            }
+          }
+        }
+        localStorage.toform=JSON.stringify(fO);
+      }
+      function loadForm(){
+        if (typeof(localStorage.toform) != "undefined" && localStorage.toform !== null){
+          var f = document.getElementById(id);
+
+          for (var i=0, fI=JSON.parse(localStorage.toform);f.elements[i]; i++){
+            var e = f.elements[i];
+            if (e.type){
+              var t = e.type.toLowerCase();
+              if( t == "text" || t == "textarea" || t == "password" || t == "datetime" || t == "datetime-local" || t == "date" || t == "month" || t == "week" || t == "time" || t == "number" || t == "range" || t == "email" || t == "url" ) {
+                e.value = fI[e.name];
+              } else if(( t == "radio" || t == "checkbox" )) {
+                if (fI.hasOwnProperty(e.name) && e.value==fI[e.name]){
+                  e.checked = true;  
+                }
+              }
+            }
+          }          
+        }
+      }
+    </script>
     <div id="global">
       <div id="header">
         <h1 id="title">'.MyTool::formatText($pb->pc->title).'</h1>
@@ -519,6 +563,8 @@ a:hover {
       <div class="article">';
 	$title ='';
 	$text = '';
+	$tags='';
+	$private = 0;
 	if (empty($_GET['edit'])){
 	    $str .= '
         <h3>New entry</h3>';
@@ -535,8 +581,14 @@ a:hover {
 	    $entry = $pb->getEntry($_GET['edit']);
 	    $title = $entry['title'];
 	    $text = $entry['text'];
+	    $tags = $entry['tags'];
+	    $private = $entry['private'];
 	    $date = date('Y-m-d H:i:s', (int)$_GET['edit']);
 	}
+	$str .='
+          <button type="button" onclick="as=window.setInterval(\'saveForm()\',60000)">autosave</button>
+          <button type="button" onclick="loadForm()">load</button>
+          <button type="button" onclick="delete localStorage.toform;if (typeof(as)!=\'undefined\' && as !== null){clearInterval(as);}">reset autosave</button><br>';
 
 	$str .= '
         <form id="edit_form" method="post" class="edit" action="?edit='.(int)$_GET['edit'].'">
@@ -544,11 +596,15 @@ a:hover {
             <label for="f_title">Title</label><br>
             <input type="text" id="f_title" name="title" value="'.$title.'"><br>
             <textarea name="text" cols="70" rows="20">'.$text.'</textarea><br>
+            <label for="f_tags">Tags</label><br>
+            <input type="text" id="f_tags" name="tags" value="'.$tags.'"><br>
             <label for="f_date">Entry date</label><br>
             <input type="text" id="f_date" name="date" value="'.$date.'"><br>
             <label for="with_comm">Comments</label><br>
             <input type="radio" id="with_comm" name="comments" value="1" '.($pb->pc->comments ? 'checked="checked"' : '').'><label for="with_comm">Allow comments</label><br>
             <input type="radio" id="without_comm" name="comments" value="0" '.(!$pb->pc->comments ? 'checked="checked"' : '').'><label for="without_comm">Disable comments</label><br>
+            <input type="checkbox" id="f_private" name="private" '.(($private==1)?'checked="checked"':'').' value="1">
+            <label for="f_private">Private</label><br>
             <input type="submit" name="save" value="Post article">
           </fieldset>
         </form>
@@ -605,9 +661,9 @@ a:hover {
 	    foreach ($list as $id=>$content)
 	    {
 		$str .= '
-        <div class="article">
+        <div class="article"'.(Session::isLogged() and ($content['private'] or $id>time())?' style="border-color:red;"':'').'>
           <h3 class="title"><a href="?'.$id.'">'.$content['title'].'</a></h3>
-          <h4 class="subtitle">'.strftime($pb->pc->dateformat, $id).'</h4>
+          <h4 class="subtitle">'.(Session::isLogged() and $content['private']?'(<em>private</em>)':'').' '.strftime($pb->pc->dateformat, $id).'</h4>
           <div class="content">
             '.MyTool::formatText($content['text']).'
           </div>
@@ -665,7 +721,7 @@ a:hover {
 	else
 	{
 	    $str .= '
-      <div class="article">
+      <div class="article"'.(Session::isLogged() and ($entry['private'] or $id > time())?' style="border-color:red;"':'').'>
         <h3 class="title">'.$entry['title'].'</h3>
         <h4 class="subtitle">'.strftime($pb->pc->dateformat, $id).'</h4>
         <div class="content">'.MyTool::formatText($entry['text']);
@@ -748,7 +804,7 @@ function insertTag(startTag, endTag, tag) {
 }
 </script>';
 		$str .= '
-        <form id="new_comment" action="#new_comment" method="post">
+        <form id="new_comment" action="" method="post">
           <fieldset>
             <legend>New comment</legend>
             <label for="pseudo">Pseudo</label><br>
@@ -760,7 +816,7 @@ function insertTag(startTag, endTag, tag) {
             <p>
               <button onclick="insertTag(\'[b]\',\'[/b]\',\'comment\');" title="bold" type="button"><strong>b</strong></button><button onclick="insertTag(\'[i]\',\'[/i]\',\'comment\');" title="italic" type="button"><em>i</em></button><button onclick="insertTag(\'[u]\',\'[/u]\',\'comment\');" title="underline" type="button"><span style="text-decoration:underline;">u</span></button><button onclick="insertTag(\'[s]\',\'[/s]\',\'comment\');" title="strike through" type="button"><del>s</del></button><button onclick="insertTag(\'[\',\'|http://]\',\'comment\');" title="link" type="button">url</button><button onclick="insertTag(\'[quote]\',\'[/quote]\',\'comment\');" title="quote" type="button">&#171;&nbsp;&#187;</button><button onclick="insertTag(\'[code]\',\'[/code]\',\'comment\');" title="code" type="button">&#60;&#62;</button>
             </p><br>';
-		if (!$cache){
+		if (!$cache and !Session::isLogged()){
 		    $captcha = new Captcha();
 		    $str .= '
             <label for="captcha">Captcha</label><br>';
@@ -848,6 +904,16 @@ class Blog
                             strlen(PHPPREFIX),
                             -strlen(PHPSUFFIX)))));
             $this->sortData();
+	    if (!Session::isLogged()){
+		$today=time();
+		foreach($this->_data as $id => $entry) {
+		    if ((!empty($entry['private']) and $entry['private']!=0) or $id > $today){
+			$this->deleteEntry($id);
+		    }
+		}
+	    }
+
+
         }
 	else{
 	    $this->editEntry(
@@ -856,7 +922,13 @@ class Blog
 		'Welcome to your <a href="http://github.com/tontof/kriss_blog">blog</a>'.
 		' (want to learn more about wp:Blog ?)'."\n\n".
 		'<a href="'.MyTool::getUrl().'?login">Login</a> and edit this entry to see a bit how this thing works.',
-		$this->pc->comments);
+		$this->pc->comments,0,'public');
+	    $this->editEntry(
+		time()+1,
+		'Private : Your simple and smart (or stupid) blog',
+		'This is a private article'.
+		' (want to learn more about wp:Blog ?)'."\n\n",
+		$this->pc->comments,1,'private');
 	    if (!$this->writeData())
 		die("Can't write to ".$pb->file);
 
@@ -899,7 +971,7 @@ class Blog
         return $list;
     }
 
-    public function editEntry($id, $title, $text, $comment)
+    public function editEntry($id, $title, $text, $comment, $private, $tags)
     {
         $comments=array();
         if (!empty($this->_data[(int)$id]["comments"])){
@@ -909,7 +981,9 @@ class Blog
             "title" => $title,
             "text" => $text,
             "comments" => $comments,
-	    "comment" => $comment);
+	    "comment" => $comment,
+	    "private" => $private,
+	    "tags" => $tags);
     }
 
     public function addComment($id, $pseudo, $site, $comment)
@@ -926,10 +1000,35 @@ class Blog
 		    "title" => $entry['title'],
 		    "text" => $entry['text'],
 		    "comments" => $comments,
-		    "comment" => $entry['comment']);
+		    "comment" => $entry['comment'],
+		    "private" => $entry['private'],
+		    "tags" => $entry['tags']);
 	    }
 	    else{
 		die("Comments not allowed for this entry.");
+	    }
+        }
+    }
+    public function editComment($idE, $idC, $pseudo, $site, $comment)
+    {
+        $entry = $this->getEntry($idE);
+        if (!$entry)
+            die("Can't find this entry.");
+        else
+        {
+	    if (Session::isLogged() and !empty($entry["comments"][$idC])){
+		$comments=$this->_data[(int)$idE]["comments"];
+		$comments[$idC]=array($pseudo,$site,$comment);
+		$this->_data[(int)$idE]=array(
+		    "title" => $entry['title'],
+		    "text" => $entry['text'],
+		    "comments" => $comments,
+		    "comment" => $entry['comment'],
+		    "private" => $entry['private'],
+		    "tags" => $entry['tags']);
+	    }
+	    else{
+		die("Can not edit this comment.");
 	    }
         }
     }
@@ -1383,7 +1482,9 @@ if (!defined('FROM_EXTERNAL') || !FROM_EXTERNAL){
 		$id,
 		$_POST['title'],
 		$_POST['text'],
-		$_POST['comments']);
+		$_POST['comments'],
+		(isset($_POST['private']) ? 1 : 0),
+		$_POST['tags']);
 	    if (!$pb->writeData())
 		die("Can't write to ".$pb->file);
 
@@ -1477,9 +1578,8 @@ if (!defined('FROM_EXTERNAL') || !FROM_EXTERNAL){
 	    if (empty($input_pseudo)){
 		$input_pseudo="<em>Anonymous</em>";
 	    }
-	    if (isset($_POST['send'])){
-		$input_captcha=strtoupper(htmlspecialchars($_POST['captcha']));
-	    }	    
+	    $input_captcha=strtoupper(htmlspecialchars($_POST['captcha']));
+	    
 		
 	    if (!empty($input_comment)
 		&& $_SESSION['captcha']==$input_captcha
@@ -1509,7 +1609,18 @@ if (!defined('FROM_EXTERNAL') || !FROM_EXTERNAL){
 		echo $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->entryPage($pb,$id,0,htmlspecialchars($_POST['pseudo']),$input_site,$input_comment));
 		exit();     
 	    }
-	} 
+	} else if (isset($_POST['edit']) and Session::isLogged()){
+	    $pb->loadData();
+	    $input_pseudo=$_POST['pseudo'];
+	    $input_comment=$_POST['comment'];
+	    $input_site=$_POST['site'];
+	    $ids=explode("_",$_SERVER['QUERY_STRING']);
+	    $pb->editComment($id,$ids[1],$input_pseudo,$input_site,$input_comment);
+	    if (!$pb->writeData())
+		die("Can't write to ".$pb->file);
+	    header('Location: '.MyTool::getUrl().'?'.$id);
+	    exit();
+	}
 	else {
 	    if (Session::isLogged()){
 		$pb->loadData();
