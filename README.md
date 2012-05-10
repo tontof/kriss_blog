@@ -1,4 +1,4 @@
-kriss_blog (version 1)
+kriss_blog (version 2)
 ======================
 
 A simple and smart (or stupid) blogging tool.
@@ -21,6 +21,9 @@ Features
   * Add comments with captcha
   * HTML and BBCode allowed in articles
   * BBCode allowed in comments
+* version 2
+  * Cache pages
+  * CSS Simplification
 
 Licence
 =======
