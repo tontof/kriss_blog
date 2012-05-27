@@ -661,9 +661,9 @@ a:hover {
 	    foreach ($list as $id=>$content)
 	    {
 		$str .= '
-        <div class="article"'.(Session::isLogged() and ($content['private'] or $id>time())?' style="border-color:red;"':'').'>
+        <div class="article"'.((Session::isLogged() and ($content['private'] or $id>time()))?' style="border-color:red;"':'').'>
           <h3 class="title"><a href="?'.$id.'">'.$content['title'].'</a></h3>
-          <h4 class="subtitle">'.(Session::isLogged() and $content['private']?'(<em>private</em>)':'').' '.strftime($pb->pc->dateformat, $id).'</h4>
+          <h4 class="subtitle">'.((Session::isLogged() and $content['private'])?'(<em>private</em>)':'').' '.strftime($pb->pc->dateformat, $id).'</h4>
           <div class="content">
             '.MyTool::formatText($content['text']).'
           </div>
@@ -721,7 +721,7 @@ a:hover {
 	else
 	{
 	    $str .= '
-      <div class="article"'.(Session::isLogged() and ($entry['private'] or $id > time())?' style="border-color:red;"':'').'>
+      <div class="article"'.((Session::isLogged() and ($entry['private'] or $id > time()))?' style="border-color:red;"':'').'>
         <h3 class="title">'.$entry['title'].'</h3>
         <h4 class="subtitle">'.strftime($pb->pc->dateformat, $id).'</h4>
         <div class="content">'.MyTool::formatText($entry['text']);
@@ -804,7 +804,7 @@ function insertTag(startTag, endTag, tag) {
 }
 </script>';
 		$str .= '
-        <form id="new_comment" action="" method="post">
+        <form id="new_comment" action="#new_comment" method="post">
           <fieldset>
             <legend>New comment</legend>
             <label for="pseudo">Pseudo</label><br>
@@ -1201,7 +1201,7 @@ class MyTool
             => '<del>$1</del>',
             '/\[u\](.+?)\[\/u\]/is'
             => '<span style="text-decoration: underline;">$1</span>',
-	    '/\[([^ ]*?)\|(.*?)\]/is'
+	    '/\[([^|]*?)\|(.*?)\]/is'
 	    => '<a href="$2">$1</a>',
 	    '/\[url\](.+?)\[\/url]/is'
             => '<a href="$1">$1</a>',
@@ -1289,7 +1289,7 @@ class MyTool
  * - prevent brute force (ban IP)
  *
  * HOWTOUSE:
- * - Just call Session::initSession(); to initialize session and
+ * - Just call Session::init(); to initialize session and
  *   check if connected with Session::isLogged()
  */
 
@@ -1370,6 +1370,7 @@ class Session
         if (!isset ($_SESSION['uid'])
             || $_SESSION['info']!=Session::_allInfos()
             || time()>=$_SESSION['expires_on']){
+	    Session::logout();
             return false;
         }
         // User accessed a page : Update his/her session expiration date.
@@ -1401,7 +1402,8 @@ class Session
         return false; // Wrong token, or already used.
     }
 }
-
+?>
+<?php
 
 MyTool::initPHP();
 Session::init();
@@ -1582,6 +1584,7 @@ if (!defined('FROM_EXTERNAL') || !FROM_EXTERNAL){
 	    
 		
 	    if (!empty($input_comment)
+		&& isset($_POST['send'])
 		&& $_SESSION['captcha']==$input_captcha
 		&& (empty($input_site)
 		    || (!empty($input_site)
