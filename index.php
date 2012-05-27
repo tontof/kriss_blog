@@ -661,9 +661,9 @@ a:hover {
 	    foreach ($list as $id=>$content)
 	    {
 		$str .= '
-        <div class="article"'.(Session::isLogged() and ($content['private'] or $id>time())?' style="border-color:red;"':'').'>
+        <div class="article"'.((Session::isLogged() and ($content['private'] or $id>time()))?' style="border-color:red;"':'').'>
           <h3 class="title"><a href="?'.$id.'">'.$content['title'].'</a></h3>
-          <h4 class="subtitle">'.(Session::isLogged() and $content['private']?'(<em>private</em>)':'').' '.strftime($pb->pc->dateformat, $id).'</h4>
+          <h4 class="subtitle">'.((Session::isLogged() and $content['private'])?'(<em>private</em>)':'').' '.strftime($pb->pc->dateformat, $id).'</h4>
           <div class="content">
             '.MyTool::formatText($content['text']).'
           </div>
@@ -721,7 +721,7 @@ a:hover {
 	else
 	{
 	    $str .= '
-      <div class="article"'.(Session::isLogged() and ($entry['private'] or $id > time())?' style="border-color:red;"':'').'>
+      <div class="article"'.((Session::isLogged() and ($entry['private'] or $id > time()))?' style="border-color:red;"':'').'>
         <h3 class="title">'.$entry['title'].'</h3>
         <h4 class="subtitle">'.strftime($pb->pc->dateformat, $id).'</h4>
         <div class="content">'.MyTool::formatText($entry['text']);
@@ -804,7 +804,7 @@ function insertTag(startTag, endTag, tag) {
 }
 </script>';
 		$str .= '
-        <form id="new_comment" action="" method="post">
+        <form id="new_comment" action="#new_comment" method="post">
           <fieldset>
             <legend>New comment</legend>
             <label for="pseudo">Pseudo</label><br>
@@ -1201,8 +1201,6 @@ class MyTool
             => '<del>$1</del>',
             '/\[u\](.+?)\[\/u\]/is'
             => '<span style="text-decoration: underline;">$1</span>',
-	    '/\[([^ ]*?)\|(.*?)\]/is'
-	    => '<a href="$2">$1</a>',
 	    '/\[url\](.+?)\[\/url]/is'
             => '<a href="$1">$1</a>',
 	    '/\[url=(\w+:\/\/[^\]]+)\](.+?)\[\/url]/is'
@@ -1210,7 +1208,9 @@ class MyTool
             '/\[quote\](.+?)\[\/quote\]/is'
             => '<blockquote>$1</blockquote>',
             '/\[code\](.+?)\[\/code\]/is'
-            => '<code>$1</code>'
+            => '<code>$1</code>',
+	    '/\[([^[]+)\|([^[]+)\]/is'
+	    => '<a href="$2">$1</a>'
             );
         $text = preg_replace(array_keys($replace),array_values($replace),$text);
         return $text;
@@ -1218,7 +1218,13 @@ class MyTool
 
     public static function formatText($text){
         $text = preg_replace_callback(
-            '/<php>(.*?)<\/php>/is',
+            '/<code_html>(.*?)<\/code_html>/is',
+            create_function(
+                '$matches',
+                'return htmlspecialchars($matches[1]);'),
+            $text);
+        $text = preg_replace_callback(
+            '/<code_php>(.*?)<\/code_php>/is',
             create_function(
                 '$matches',
                 'return highlight_string("<?php $matches[1] ?>",true);'),
@@ -1289,7 +1295,7 @@ class MyTool
  * - prevent brute force (ban IP)
  *
  * HOWTOUSE:
- * - Just call Session::initSession(); to initialize session and
+ * - Just call Session::init(); to initialize session and
  *   check if connected with Session::isLogged()
  */
 
@@ -1360,8 +1366,7 @@ class Session
     // Force logout
     public static function logout()
     {  
-        session_unset(); 
-        session_destroy();
+	unset($_SESSION['uid'],$_SESSION['info'],$_SESSION['expires_on']);
     } 
 
     // Make sure user is logged in.
@@ -1370,6 +1375,7 @@ class Session
         if (!isset ($_SESSION['uid'])
             || $_SESSION['info']!=Session::_allInfos()
             || time()>=$_SESSION['expires_on']){
+	    Session::logout();
             return false;
         }
         // User accessed a page : Update his/her session expiration date.
@@ -1401,7 +1407,8 @@ class Session
         return false; // Wrong token, or already used.
     }
 }
-
+?>
+<?php
 
 MyTool::initPHP();
 Session::init();
@@ -1582,6 +1589,7 @@ if (!defined('FROM_EXTERNAL') || !FROM_EXTERNAL){
 	    
 		
 	    if (!empty($input_comment)
+		&& isset($_POST['send'])
 		&& $_SESSION['captcha']==$input_captcha
 		&& (empty($input_site)
 		    || (!empty($input_site)
