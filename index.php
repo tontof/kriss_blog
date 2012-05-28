@@ -826,17 +826,17 @@ function insertTag(startTag, endTag, tag) {
             <input type="text" placeholder="Captcha" id="captcha" name="captcha"';
 		    $str .= (isset($_POST['captcha']) and !isset($_POST['preview']))?' style="border-color:red">':'>'.'<br>';
 		}
-		if (strpos($_SERVER['QUERY_STRING'],'_') === false){
+		if (strpos($_SERVER['QUERY_STRING'],'_') === true and Session::isLogged()){
+		    $str.='
+            <input type="submit" value="Edit" name="edit">';
+		}
+		else{
 		    $str .= '
             <input type="submit" value="Preview" name="preview">';
 		    if (!$cache){
 			$str.='
             <input type="submit" value="Send" name="send">';
 		    }
-		}
-		else{
-		    $str.='
-            <input type="submit" value="Edit" name="edit">';
 		}
 
 		$str .= '
@@ -1201,8 +1201,6 @@ class MyTool
             => '<del>$1</del>',
             '/\[u\](.+?)\[\/u\]/is'
             => '<span style="text-decoration: underline;">$1</span>',
-	    '/\[([^|]*?)\|(.*?)\]/is'
-	    => '<a href="$2">$1</a>',
 	    '/\[url\](.+?)\[\/url]/is'
             => '<a href="$1">$1</a>',
 	    '/\[url=(\w+:\/\/[^\]]+)\](.+?)\[\/url]/is'
@@ -1210,7 +1208,9 @@ class MyTool
             '/\[quote\](.+?)\[\/quote\]/is'
             => '<blockquote>$1</blockquote>',
             '/\[code\](.+?)\[\/code\]/is'
-            => '<code>$1</code>'
+            => '<code>$1</code>',
+	    '/\[([^[]+)\|([^[]+)\]/is'
+	    => '<a href="$2">$1</a>'
             );
         $text = preg_replace(array_keys($replace),array_values($replace),$text);
         return $text;
@@ -1218,7 +1218,13 @@ class MyTool
 
     public static function formatText($text){
         $text = preg_replace_callback(
-            '/<php>(.*?)<\/php>/is',
+            '/<code_html>(.*?)<\/code_html>/is',
+            create_function(
+                '$matches',
+                'return htmlspecialchars($matches[1]);'),
+            $text);
+        $text = preg_replace_callback(
+            '/<code_php>(.*?)<\/code_php>/is',
             create_function(
                 '$matches',
                 'return highlight_string("<?php $matches[1] ?>",true);'),
@@ -1360,8 +1366,7 @@ class Session
     // Force logout
     public static function logout()
     {  
-        session_unset(); 
-        session_destroy();
+	unset($_SESSION['uid'],$_SESSION['info'],$_SESSION['expires_on']);
     } 
 
     // Make sure user is logged in.
@@ -1535,6 +1540,7 @@ if (!defined('FROM_EXTERNAL') || !FROM_EXTERNAL){
 	exit();
     } elseif (isset($_GET['rss'])){
 // RSS in cache
+	header("Content-Type: application/rss+xml");
 	if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/rss.xml')){
 	    exit();
 	}
