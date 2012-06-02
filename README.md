@@ -35,6 +35,8 @@ TODOs
 * use tags
 * search in articles
 * personnalize moderation message in config
+* use PEAR coding convention (phpcs to validate)
+* change Blog_Page with heredoc
 
 Licence
 =======
