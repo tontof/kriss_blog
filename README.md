@@ -36,6 +36,8 @@ TODOs
 * search in articles
 * personnalize moderation message in config
 * change autosave using SESSION (more simple)
+* use PEAR coding convention (phpcs to validate)
+* change Blog_Page with heredoc
 
 Licence
 =======
