@@ -2,6 +2,7 @@
 /**
  * kriss_blog simple and smart (or stupid) blogging tool
  * Copyleft (C) 2012 Tontof - http://tontof.net
+ *
  * picoBlog useless blogging tool
  * Copyleft (C) 2007-2010 BohwaZ - http://dev.kd2.org
  *
@@ -18,6 +19,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ * PHP version 5
  */
 
 define('DATA_FILE','data.php');
@@ -1540,7 +1543,6 @@ if (!defined('FROM_EXTERNAL') || !FROM_EXTERNAL){
 	exit();
     } elseif (isset($_GET['rss'])){
 // RSS in cache
-	header("Content-Type: application/rss+xml");
 	if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/rss.xml')){
 	    exit();
 	}

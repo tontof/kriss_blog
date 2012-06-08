@@ -35,6 +35,7 @@ TODOs
 * use tags
 * search in articles
 * personnalize moderation message in config
+* change autosave using SESSION (more simple)
 
 Licence
 =======
