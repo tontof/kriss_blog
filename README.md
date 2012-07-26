@@ -1,4 +1,4 @@
-kriss_blog (version 3)
+kriss_blog (version 4)
 ======================
 
 A simple and smart (or stupid) blogging tool.

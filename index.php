@@ -27,7 +27,7 @@ define('DATA_FILE','data.php');
 define('CONFIG_FILE','config.php');
 define('STYLE_FILE','style.css');
 define('CACHE_DIR','cache');
-define('BLOG_VERSION',3);
+define('BLOG_VERSION',4);
 
 define('PHPPREFIX','<?php /* '); // Prefix to encapsulate data in php code.
 define('PHPSUFFIX',' */ ?>'); // Suffix to encapsulate data in php code.
