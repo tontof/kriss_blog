@@ -28,16 +28,18 @@ Features
   * Comments moderation
   * Autosave edition
   * Private/future posting
+* version 4
+  * Autosave edition with SESSION
 
 TODOs
 =====
-* enable cache with future posting
 * use tags
 * search in articles
 * personnalize moderation message in config
-* change autosave using SESSION (more simple)
 * use PEAR coding convention (phpcs to validate)
 * change Blog_Page with heredoc
+* send mail when new comments or comments managements
+* edit menu to add external links
 
 Licence
 =======
