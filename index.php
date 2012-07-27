@@ -27,7 +27,7 @@ define('DATA_FILE','data.php');
 define('CONFIG_FILE','config.php');
 define('STYLE_FILE','style.css');
 define('CACHE_DIR','cache');
-define('BLOG_VERSION',4);
+define('BLOG_VERSION',3);
 
 define('PHPPREFIX','<?php /* '); // Prefix to encapsulate data in php code.
 define('PHPSUFFIX',' */ ?>'); // Suffix to encapsulate data in php code.
@@ -581,7 +581,7 @@ HTML;
 	    $date = date('Y-m-d H:i:s', (int)$_GET['edit']);
 	}
         
-    if (empty($_GET['edit']) && isset($_SESSION['autosave'])) {
+    if (isset($_SESSION['autosave'])) {
         $title = $_SESSION['autosave']['title'];
         $text = $_SESSION['autosave']['text'];
         $tags = $_SESSION['autosave']['tags'];
