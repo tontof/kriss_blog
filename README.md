@@ -1,4 +1,4 @@
-kriss_blog (version 4)
+kriss_blog (version 5)
 ======================
 
 A simple and smart (or stupid) blogging tool.
@@ -30,6 +30,10 @@ Features
   * Private/future posting
 * version 4
   * Autosave edition with SESSION
+* version 5
+  * Editable menus + extra menus
+  * RSS comments
+  * No captcha after preview
 
 TODOs
 =====

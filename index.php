@@ -637,6 +637,7 @@ HTML;
     <title>'.$title.'</title>
     '.$this->css.'
     <link rel="alternate" type="application/rss+xml" title="'.$title.' RSS" href="?rss">
+    <link rel="alternate" type="application/rss+xml" title="'.$title.' RSS comments" href="?rss=comments">
   </head>
   <body>'.$body.'
   </body>
