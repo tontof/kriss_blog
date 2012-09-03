@@ -1,41 +1,23 @@
 <?php
-/**
- * kriss_blog simple and smart (or stupid) blogging tool
- * Copyleft (C) 2012 Tontof - http://tontof.net
- *
- * PHP version 5
- *
- * picoBlog useless blogging tool
- * Copyleft (C) 2007-2010 BohwaZ - http://dev.kd2.org
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- */
 
-define('DATA_FILE','data.php');
-define('CONFIG_FILE','config.php');
-define('STYLE_FILE','style.css');
-define('CACHE_DIR','cache');
-define('BLOG_VERSION',3);
+define('CACHE_DIR', 'cache');
+define('DATA_DIR', 'data');
 
-define('PHPPREFIX','<?php /* '); // Prefix to encapsulate data in php code.
-define('PHPSUFFIX',' */ ?>'); // Suffix to encapsulate data in php code.
+define('DATA_FILE', DATA_DIR.'/data.php');
+define('CONFIG_FILE', DATA_DIR.'/config.php');
+define('MENU_FILE', DATA_DIR.'/menu.php');
+
+define('STYLE_FILE', 'style.css');
+define('BLOG_VERSION', 5);
+
+define('PHPPREFIX', '<?php /* '); // Prefix to encapsulate data in php code.
+define('PHPSUFFIX', ' */ ?>'); // Suffix to encapsulate data in php code.
 
 
 class Blog_Conf
 {
-    private $_file = '';
+    private $_config_file = '';
+    private $_menu_file = '';
     public $login = '';
     public $hash = '';
     public $salt = '';
@@ -48,7 +30,7 @@ class Blog_Conf
 
     // Blog locale
     public $locale = "en_GB";
-    public $dateformat = "%A %d %B %Y at %H:%M";
+    public $dateformat = "%A %d %B %Y - %H:%M";
 
     // Number of entries to display per page
     public $bypage = "10";
@@ -65,24 +47,44 @@ class Blog_Conf
     // Blog url (leave empty to autodetect)
     public $url = '';
 
+    // Menu
+    public $menu = '?rss RSS|?login Login';
+
+    // Extra html in home and articles pages
+    public $extra = '<div id="extra">
+  <span class="extratohide">extra menu</span>
+  <div class="extratoshow">
+    <a href= "?">Home</a><br>
+    <a href= "?rss">RSS</a><br>
+    <a href= "?login">Login</a>
+  </div>
+</div>';
+
     // kriss_blog version
     public $version;
 
-    public function __construct($config_file,$version)
+    public function __construct($config_file, $menu_file, $version)
     {
-        $this->_file = $config_file;
+        $this->_config_file = $config_file;
+        $this->_menu_file = $menu_file;
         $this->version = $version;
 
         // Loading user config
-        if (file_exists($this->_file)){
-            require_once $this->_file;
+        if (file_exists($this->_config_file)){
+            require_once $this->_config_file;
         }
         else{
             $this->_install();
         }
 
+        // Loading menu info
+        if (file_exists($this->_menu_file)){
+            include_once $this->_menu_file;
+        }
+
+
         // For translating things
-	setlocale(LC_TIME, $this->locale);
+        setlocale(LC_TIME, $this->locale);
     }
 
     private function _install()
@@ -91,7 +93,33 @@ class Blog_Conf
             $this->setSalt(sha1(uniqid('',true).'_'.mt_rand()));
             $this->setLogin($_POST['setlogin']);
             $this->setHash($_POST['setpassword']);
-            if ($this->write()){
+
+            if (!is_dir(DATA_DIR)) {
+                if (!@mkdir(DATA_DIR, 0755)) {
+                    echo '
+<script>
+ alert("Error: can not create '.DATA_DIR.' directory, check permissions");
+ document.location=window.location.href;
+</script>';
+                    exit();
+                }
+                @chmod(DATA_DIR, 0755);
+                if (!is_file(DATA_DIR.'/.htaccess')) {
+                    if (!@file_put_contents(
+                        DATA_DIR.'/.htaccess',
+                        "Allow from none\nDeny from all\n"
+                    )) {
+                        echo '
+<script>
+ alert("Can not protect '.DATA_DIR.'");
+ document.location=window.location.href;
+</script>';
+                        exit();
+                    }
+                }
+            }
+
+            if ($this->write($this->_config_file)){
                 echo '
 <script language="JavaScript">
  alert("Your simple and smart (or stupid) blog is now configured. Enjoy !");
@@ -210,10 +238,27 @@ class Blog_Conf
         $this->reverseorder=$reverseorder;
     }
 
-    public function write()
+    public function setMenu($menu)
     {
-        $data = array('login', 'hash', 'salt', 'title', 'desc', 'dateformat',
-		      'locale', 'bypage', 'cache', 'comments', 'reverseorder');
+        $this->menu = $menu;
+    }
+
+    public function setExtra($extra)
+    {
+        $this->extra = $extra;
+    }
+
+    public function write($file)
+    {
+        if ($file == $this->_config_file) {
+            $data = array('login', 'hash', 'salt', 'title', 'desc', 'dateformat',
+                          'locale', 'bypage', 'cache', 'comments', 'reverseorder');
+        } elseif ($file == $this->_menu_file) {
+            $data = array('menu', 'extra');
+        } else {
+            die("Unknown file");
+        }
+
         $out = '<?php';
         $out.= "\n";
 
@@ -225,14 +270,12 @@ class Blog_Conf
 
         $out.= '?>';
 
-        if (!@file_put_contents($this->_file, $out))
+        if (!@file_put_contents($file, $out))
             return false;
 
         return true;
     }
 }
-?>
-<?php
 
 class Blog_Page
 {
@@ -279,6 +322,41 @@ body {
   padding: .5em;
   font-size: .9em;
   color: #666;
+}
+
+#status {
+  margin: 0;
+  font-size: 0.7em;
+  text-align: center;
+  clear: both;
+  background: #fff;
+  width: 100%;
+}
+
+#extra {
+  background: #eee;
+  border-radius: 0 0 9px 9px;
+  border-style: none solid solid;
+  border-width: medium 1px 1px;
+  box-shadow: 0 2px 8px 0 rgba(51, 51, 51, 0.5);
+  font-size: 10pt;
+  font-weight: bold;
+  padding: 1px 20px 3px;
+  position: absolute;
+  left: 75%;
+  top: 0;
+}
+
+.extratoshow {
+  display: none;
+}
+
+#extra:hover .extratohide {
+  display: none;
+}
+
+#extra:hover .extratoshow {
+  display: block;
 }
 
 .pagination {
@@ -374,10 +452,18 @@ a:hover {
 </style>
 ';
 
-    public function __construct($css_file){
-        // We allow the user to have its own stylesheet
-	if (file_exists($css_file))
-	    $this->css = '<link rel="stylesheet" href="'.$css_file.'">';
+  public function __construct($css_file){
+      // We allow the user to have its own stylesheet
+      if (file_exists($css_file)) {
+          $this->css = '<link rel="stylesheet" href="'.$css_file.'">';
+      }
+  }
+    public function status()
+    {
+        return '<div id="status"><a href="http://github.com/tontof/kriss_blog">KrISS blog'
+            . ' ' . BLOG_VERSION . '</a><span class="nomobile">'
+            . ' - A simple and smart (or stupid) blog'
+            . '</span>. By <a href="http://tontof.net">Tontof</a></div>';
     }
 
     public function loginPage()
@@ -406,18 +492,14 @@ a:hover {
 document.loginform.login.focus();
 </script>
 HTML;
-
     }
 
-    public function rssPage($pb){
-	$pb->pc->reverseorder = true;
-	$pb->sortData();
-
-	$list = $pb->getList();
-	$last_update = array_keys($list);
-	$last_update = date(DATE_W3C, $last_update[0]);
-
-	$str='<?xml version="1.0" encoding="UTF-8" ?>
+    public function rssCommentsPage($pb)
+    {
+        $list = $pb->getComments();
+        $last_update = array_keys($list);
+        $last_update = date(DATE_W3C, $last_update[0]);
+        $str='<?xml version="1.0" encoding="UTF-8" ?>
 <rdf:RDF
   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
   xmlns:dc="http://purl.org/dc/elements/1.1/"
@@ -434,30 +516,97 @@ HTML;
     <dc:creator>'.$pb->pc->login.'</dc:creator>
     <dc:date>'.$last_update.'</dc:date>
     <dc:source>kriss blog</dc:source>
-  
+
     <sy:updatePeriod>daily</sy:updatePeriod>
     <sy:updateFrequency>1</sy:updateFrequency>
     <sy:updateBase>'.$last_update.'</sy:updateBase>
-  
+
     <items>
       <rdf:Seq>
     ';
-	$today=time();
-	foreach ($list as $id=>$content)
-	{
-	    if (!((!empty($content['private']) and $content['private']!=0) or $id > $today)){
-		$str .= '    <rdf:li rdf:resource="'.MyTool::getUrl().'?'.$id.'" />
+        $today=time();
+        foreach ($list as $id=>$comment)
+        {
+            $str .= '    <rdf:li rdf:resource="'.$comment[3].'" />
     ';
-	    }
-	}
-	$str .= '  </rdf:Seq>
+        }
+        $str .= '  </rdf:Seq>
     </items>
   </channel>
 ';
-	foreach ($list as $id=>$content)
-	{
-	    if (!((!empty($content['private']) and $content['private']!=0) or $id > $today)){
-		$str .= 	 '
+        foreach ($list as $id=>$comment)
+        {
+            $str .= 	 '
+  <item rdf:about="'.$comment[3].'">
+      <title>'.strip_tags($comment[0]).'</title>
+      <link>'.$comment[3].'</link>
+      <description><![CDATA['.MyTool::formatText($comment[2]).']]></description>
+      <dc:date>'.date(DATE_W3C, $id).'</dc:date>
+      <dc:language>'.substr($pb->pc->locale, 0, 2).'</dc:language>
+      <dc:creator>'.$pb->pc->login.'</dc:creator>
+      <dc:subject>Simple and smart (or stupid) blog</dc:subject>
+      <content:encoded>
+          <![CDATA['.MyTool::formatText($comment[2]).']]>
+      </content:encoded>
+  </item>';
+        }
+
+        $str .= '
+</rdf:RDF>';
+
+        return $str;
+    }
+
+    public function rssPage($pb)
+    {
+        $pb->pc->reverseorder = true;
+        $pb->sortData();
+
+        $list = $pb->getList();
+        $last_update = array_keys($list);
+        $last_update = date(DATE_W3C, $last_update[0]);
+
+        $str='<?xml version="1.0" encoding="UTF-8" ?>
+<rdf:RDF
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns="http://purl.org/rss/1.0/">
+
+  <channel rdf:about="'.MyTool::getUrl().'">
+    <title>'.strip_tags(MyTool::formatText($pb->pc->title)).'</title>
+    <link>'.MyTool::getUrl().'</link>
+    <description>'.strip_tags(MyTool::formatText($pb->pc->desc)).'</description>
+    <dc:language>'.substr($pb->pc->locale, 0, 2).'</dc:language>
+    <dc:rights></dc:rights>
+    <dc:creator>'.$pb->pc->login.'</dc:creator>
+    <dc:date>'.$last_update.'</dc:date>
+    <dc:source>kriss blog</dc:source>
+
+    <sy:updatePeriod>daily</sy:updatePeriod>
+    <sy:updateFrequency>1</sy:updateFrequency>
+    <sy:updateBase>'.$last_update.'</sy:updateBase>
+
+    <items>
+      <rdf:Seq>
+    ';
+        $today=time();
+        foreach ($list as $id=>$content)
+        {
+            if (!((!empty($content['private']) and $content['private']!=0) or $id > $today)){
+                $str .= '    <rdf:li rdf:resource="'.MyTool::getUrl().'?'.$id.'" />
+    ';
+            }
+        }
+        $str .= '  </rdf:Seq>
+    </items>
+  </channel>
+';
+        foreach ($list as $id=>$content)
+        {
+            if (!((!empty($content['private']) and $content['private']!=0) or $id > $today)){
+                $str .= 	 '
   <item rdf:about="'.MyTool::getUrl().'?'.$id.'">
       <title>'.strip_tags(MyTool::formatText($content['title'])).'</title>
       <link>'.MyTool::getUrl().'?'.$id.'</link>
@@ -470,17 +619,17 @@ HTML;
           <![CDATA['.MyTool::formatText($content['text']).']]>
       </content:encoded>
   </item>';
-	    }
-	}
+            }
+        }
 
-	$str .= '
+        $str .= '
 </rdf:RDF>';
 
-	return $str;
+        return $str;
     }
     public function htmlPage($title,$body)
     {
-	return '<!DOCTYPE html>
+        return '<!DOCTYPE html>
 <html>
   <head>
     <meta charset="UTF-8">
@@ -494,6 +643,62 @@ HTML;
 </html>';
     }
 
+    public function editMenuPage($pc)
+    {
+        $ref = '';
+        if (isset($_SERVER['HTTP_REFERER'])) {
+            $ref = $_SERVER['HTTP_REFERER'];
+        }
+        $token = Session::getToken();
+        $menuArray = explode('|', $pc->menu);
+
+        $text = '';
+        foreach ($menuArray as $item) {
+            $text .= $item."\n";
+        }
+
+        $extra = $pc->extra;
+
+        $str = '
+    <div id="global">
+      <div id="header">
+        <h1 id="title">Edit menu</h1>
+      </div>
+      <div id="section">
+        <form method="post" action="">
+          <input type="hidden" name="returnurl" value="'.$ref.'">
+          <input type="hidden" name="token" value="'.$token.'">
+          <fieldset>
+            <legend>Main menu</legend>
+             - [URL] [text of the link]:<br>
+          &nbsp;&nbsp; - Example of absolute URL: http://tontof.net Tontof website > <a href="http://tontof.net">Tontof website</a><br>
+          &nbsp;&nbsp; - Example of relative URL: ?rss Link to the RSS > <a href="?rss">Link to the RSS</a><br>
+            <textarea name="menu" cols="70" rows="20">'.$text.'</textarea><br>
+          </fieldset>
+          <fieldset>
+            <legend>Extra menu</legend>
+             - html added in home and articles pages:<br>
+             <pre>
+&lt;div id=&quot;extra&quot;&gt;
+  &lt;span class=&quot;extratohide&quot;&gt;extra menu&lt;/span&gt;
+  &lt;div class=&quot;extratoshow&quot;&gt;
+    &lt;a href= &quot;?&quot;&gt;Home&lt;/a&gt;&lt;br&gt;
+    &lt;a href= &quot;?rss&quot;&gt;RSS&lt;/a&gt;&lt;br&gt;
+    &lt;a href= &quot;?login&quot;&gt;Login&lt;/a&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</pre>
+            <textarea name="extra" cols="70" rows="20">'.htmlspecialchars($extra).'</textarea><br>
+          </fieldset>
+          <input type="submit" value="Cancel" name="cancel">
+          <input type="submit" value="Save" name="save">
+        </form><br>
+      </div>
+    </div>
+';
+        return $str;
+    }
+
     public function configPage($pc){
 	return '
     <div id="global">
@@ -504,14 +709,14 @@ HTML;
       <div id="section">
         <form method="post" action="">
           <fieldset>
-            <legend>Blog informations</legend>
+            <legend>Blog information</legend>
             <label>- Blog title</label><br>
             <input type="text" name="title" value="'.$pc->title.'"><br>
             <label>- Blog description (HTML allowed)</label><br>
             <input type="text" name="desc" value="'.$pc->desc.'"><br>
           </fieldset>
           <fieldset>
-            <legend>Language informations</legend>
+            <legend>Language information</legend>
             <label>- Locale (eg. en_GB or fr_FR)</label><br>
             <input type="text" maxlength="5" name="locale" value="'.$pc->locale.'" /><br>
             <label>- Date format (<a href="http://php.net/strftime">strftime</a> format)</label><br>
@@ -529,7 +734,7 @@ HTML;
             <input type="radio" id="without_cache" name="cache" value="0" '.(!$pc->cache ? 'checked="checked"' : '').' /><label for="without_cache"> No cache</label><br>
             <label for="reverse">- Order of entries</label><br>
             <input type="radio" id="normalorder" name="reverseorder" value="0" '.(!$pc->reverseorder ? 'checked="checked"' : '').' /> <label for="normalorder">From the latest to the newest</label><br>
-            <input type="radio" id="reverse" name="reverseorder" value="1" '.($pc->reverseorder ? 'checked="checked"' : '').' /><label for="reverseorder"><strong>Reverse order:</strong> from the newest to the latest</label><br>
+            <input type="radio" id="reverse" name="reverseorder" value="1" '.($pc->reverseorder ? 'checked="checked"' : '').' /><label for="reverseorder"> <strong>Reverse order:</strong> from the newest to the latest</label><br>
             <input type="submit" name="cancel" value="Cancel"/>
             <input type="submit" name="save" value="Save" />
           </fieldset>
@@ -614,24 +819,37 @@ HTML;
     </div>';
 	return $str;
     }
+
     public function indexPage($pb,$page){
 	$begin = ($page - 1) * $pb->pc->bypage;
 	$list = $pb->getList($begin);
 
+    $menuArray = explode('|', $pb->pc->menu);
+    $menu = '';
+
+    if (count($menuArray) > 0 && !empty($menuArray[0])) {
+        $itemArray = explode(' ', $menuArray[0], 2);
+        $menu .= '<a href="'.$itemArray[0].'">'.$itemArray[1].'</a>';
+        for($i = 1; $i < count($menuArray); $i++) {
+            $itemArray = explode(' ', $menuArray[$i], 2);
+            $menu .= ' | <a href="'.$itemArray[0].'">'.$itemArray[1].'</a>';
+        }
+    }
+
+    $extra = $pb->pc->extra;
+
 	$str = '
     <div id="global">
+      '.$extra.'
       <div id="header">
         <h1 id="title">'.MyTool::formatText($pb->pc->title).'</h1>
         <h2 id="subtitle">'.MyTool::formatText($pb->pc->desc).'</h2>
       </div>
       <div id="nav">
         <p>
-          <a href="?rss">RSS</a>';
+          '.$menu;
 	if (Session::isLogged()){
-	    $str .= ' | <a href="?edit" class="admin">New entry</a> | <a href="?config" class="admin">Configuration</a> | <a href="?logout" class="admin">Logout</a>';
-	}
-	else{
-	    $str .= ' | <a href="?login">login</a>';
+	    $str .= ' | <a href="?editmenu" class="admin">Edit menu</a> | <a href="?edit" class="admin">New entry</a> | <a href="?config" class="admin">Configuration</a> | <a href="?logout" class="admin">Logout</a>';
 	}
 	$str .= '
         </p>
@@ -664,7 +882,7 @@ HTML;
 		$str .= '
         <div class="article"'.((Session::isLogged() and ($content['private'] or $id>time()))?' style="border-color:red;"':'').'>
           <h3 class="title"><a href="?'.$id.'">'.$content['title'].'</a></h3>
-          <h4 class="subtitle">'.((Session::isLogged() and $content['private'])?'(<em>private</em>)':'').' '.strftime($pb->pc->dateformat, $id).'</h4>
+          <h4 class="subtitle">'.((Session::isLogged() and $content['private'])?'(<em>private</em>)':'').' '.utf8_encode(strftime($pb->pc->dateformat, $id)).'</h4>
           <div class="content">
             '.MyTool::formatText($content['text']).'
           </div>
@@ -696,12 +914,16 @@ HTML;
 	}
 	$str .= '
       </div>
+'.$this->status().'
     </div>';
 	return $str;
     }
     public function entryPage($pb,$id,$cache=0,$input_pseudo='',$input_site='',$input_comment=''){
-	$str = '
+        $extra = $pb->pc->extra;
+
+        $str = '
     <div id="global">
+      '.$extra.'
       <div id="header">
         <h1 id="title">'.MyTool::formatText($pb->pc->title).'</h1>
         <h2 id="subtitle">'.MyTool::formatText($pb->pc->desc).'</h2>
@@ -724,7 +946,7 @@ HTML;
 	    $str .= '
       <div class="article"'.((Session::isLogged() and ($entry['private'] or $id > time()))?' style="border-color:red;"':'').'>
         <h3 class="title">'.$entry['title'].'</h3>
-        <h4 class="subtitle">'.strftime($pb->pc->dateformat, $id).'</h4>
+        <h4 class="subtitle">'.utf8_encode(strftime($pb->pc->dateformat, $id)).'</h4>
         <div class="content">'.MyTool::formatText($entry['text']);
 
 	    $str .= '
@@ -767,7 +989,7 @@ HTML;
 		}
 		else{
 		    $str .= '
-          '.strftime($pb->pc->dateformat, $key);
+          '.utf8_encode(strftime($pb->pc->dateformat, $key));
 		    if (Session::isLogged()){
 			$str .= ' | <a href="?'.$id.'_'.$key.'#new_comment" class="admin">Edit</a>';
 		    }
@@ -817,7 +1039,10 @@ function insertTag(startTag, endTag, tag) {
             <p>
               <button onclick="insertTag(\'[b]\',\'[/b]\',\'comment\');" title="bold" type="button"><strong>b</strong></button><button onclick="insertTag(\'[i]\',\'[/i]\',\'comment\');" title="italic" type="button"><em>i</em></button><button onclick="insertTag(\'[u]\',\'[/u]\',\'comment\');" title="underline" type="button"><span style="text-decoration:underline;">u</span></button><button onclick="insertTag(\'[s]\',\'[/s]\',\'comment\');" title="strike through" type="button"><del>s</del></button><button onclick="insertTag(\'[\',\'|http://]\',\'comment\');" title="link" type="button">url</button><button onclick="insertTag(\'[quote]\',\'[/quote]\',\'comment\');" title="quote" type="button">&#171;&nbsp;&#187;</button><button onclick="insertTag(\'[code]\',\'[/code]\',\'comment\');" title="code" type="button">&#60;&#62;</button>
             </p><br>';
-		if (!$cache and !Session::isLogged()){
+		if (!$cache
+            && !Session::isLogged()
+            && (!isset($_SESSION['captcha'])
+                || $_SESSION['captcha']!='human')){
 		    $captcha = new Captcha();
 		    $str .= '
             <label for="captcha">Captcha</label><br>';
@@ -825,7 +1050,7 @@ function insertTag(startTag, endTag, tag) {
 		    $str .= $captcha->convertString($_SESSION['captcha']).'<br>';
 		    $str .= '
             <input type="text" placeholder="Captcha" id="captcha" name="captcha"';
-		    $str .= (isset($_POST['captcha']) and !isset($_POST['preview']))?' style="border-color:red">':'>'.'<br>';
+		    $str .= (isset($_POST['captcha']) && !isset($_POST['preview']))?' style="border-color:red">':'>'.'<br>';
 		}
 		if (strpos($_SERVER['QUERY_STRING'],'_') === false){
 		    $str .= '
@@ -852,28 +1077,28 @@ function insertTag(startTag, endTag, tag) {
 	    $str .= '
       </div>';
 	}
-	$str .= '
-    </div>';
+	$str .= $this->status().'
+    </div>
+';
 	return $str;
     }
     public function loadCachePage($file){
-	if(file_exists($file)){
-	    readfile($file);
-	    return true;
-	}
-	return false;
+        if(file_exists($file)){
+            readfile($file);
+            return true;
+        }
+        return false;
     }
     public function writeCachePage($file, $str){
-	ob_start();
-	echo $str;
-	$page = ob_get_contents();
-	ob_end_clean();
-	if (!@file_put_contents($file, $page)){
-	    die("Can't write ".$file);
-	}
+        ob_start();
+        echo $str;
+        $page = ob_get_contents();
+        ob_end_clean();
+        if (!@file_put_contents($file, $page)){
+            die("Can't write ".$file);
+        }
     }
 }
-
 
 class Blog
 {
@@ -907,37 +1132,35 @@ class Blog
                             strlen(PHPPREFIX),
                             -strlen(PHPSUFFIX)))));
             $this->sortData();
-	    if (!Session::isLogged() && !$force){
-		$today=time();
-		foreach($this->_data as $id => $entry) {
-		    if ((!empty($entry['private']) and $entry['private']!=0) or $id > $today){
-			$this->deleteEntry($id);
-		    }
-		}
-	    }
-
-
+            if (!Session::isLogged() && !$force){
+                $today=time();
+                foreach($this->_data as $id => $entry) {
+                    if ((!empty($entry['private']) and $entry['private']!=0) or $id > $today){
+                        $this->deleteEntry($id);
+                    }
+                }
+            }
         }
-	else{
-	    $this->editEntry(
-		time(),
-		'Your simple and smart (or stupid) blog',
-		'Welcome to your <a href="http://github.com/tontof/kriss_blog">blog</a>'.
-		' (want to learn more about wp:Blog ?)'."\n\n".
-		'<a href="'.MyTool::getUrl().'?login">Login</a> and edit this entry to see a bit how this thing works.',
-		$this->pc->comments,0,'public');
-	    $this->editEntry(
-		time()+1,
-		'Private : Your simple and smart (or stupid) blog',
-		'This is a private article'.
-		' (want to learn more about wp:Blog ?)'."\n\n",
-		$this->pc->comments,1,'private');
-	    if (!$this->writeData())
-		die("Can't write to ".$pb->file);
+        else{
+            $this->editEntry(
+                time(),
+                'Your simple and smart (or stupid) blog',
+                'Welcome to your <a href="http://github.com/tontof/kriss_blog">blog</a>'.
+                ' (want to learn more about wp:Blog ?)'."\n\n".
+                '<a href="'.MyTool::getUrl().'?login">Login</a> and edit this entry to see a bit how this thing works.',
+                $this->pc->comments,0,'public');
+            $this->editEntry(
+                time()+1,
+                'Private : Your simple and smart (or stupid) blog',
+                'This is a private article'.
+                ' (want to learn more about wp:Blog ?)'."\n\n",
+                $this->pc->comments,1,'private');
+            if (!$this->writeData())
+                die("Can't write to ".$pb->file);
 
-	    header('Location: '.MyTool::getUrl());
-	    exit();  
-	}
+            header('Location: '.MyTool::getUrl());
+            exit();  
+        }
     }
 
     public function sortData()
@@ -974,6 +1197,22 @@ class Blog
         return $list;
     }
 
+    public function getComments()
+    {
+        $comments=array();
+        foreach($this->_data as $id => $entry) {
+            $ecomments = $entry["comments"];
+            $i = 1;
+            foreach(array_keys($ecomments) as $time) {
+                $ecomments[$time][] = MyTool::getUrl().'?'.$id.'#'.$i;
+                $i++;
+            }
+            $comments = $comments + $ecomments;
+        }
+        krsort($comments);
+        return array_slice($comments, 0, $this->pc->bypage, true);
+    }
+
     public function editEntry($id, $title, $text, $comment, $private, $tags)
     {
         $comments=array();
@@ -984,9 +1223,9 @@ class Blog
             "title" => $title,
             "text" => $text,
             "comments" => $comments,
-	    "comment" => $comment,
-	    "private" => $private,
-	    "tags" => $tags);
+            "comment" => $comment,
+            "private" => $private,
+            "tags" => $tags);
     }
 
     public function addComment($id, $pseudo, $site, $comment)
@@ -996,20 +1235,20 @@ class Blog
             die("Can't find this entry. " . $entry);
         else
         {
-	    if (isset($entry["comment"]) && $entry["comment"]){
-		$comments=$this->_data[(int)$id]["comments"];
-		$comments[time()]=array($pseudo,$site,$comment);
-		$this->_data[(int)$id]=array(
-		    "title" => $entry['title'],
-		    "text" => $entry['text'],
-		    "comments" => $comments,
-		    "comment" => $entry['comment'],
-		    "private" => $entry['private'],
-		    "tags" => $entry['tags']);
-	    }
-	    else{
-		die("Comments not allowed for this entry.");
-	    }
+            if (isset($entry["comment"]) && $entry["comment"]){
+                $comments=$this->_data[(int)$id]["comments"];
+                $comments[time()]=array($pseudo,$site,$comment);
+                $this->_data[(int)$id]=array(
+                    "title" => $entry['title'],
+                    "text" => $entry['text'],
+                    "comments" => $comments,
+                    "comment" => $entry['comment'],
+                    "private" => $entry['private'],
+                    "tags" => $entry['tags']);
+            }
+            else{
+                die("Comments not allowed for this entry.");
+            }
         }
     }
     public function editComment($idE, $idC, $pseudo, $site, $comment)
@@ -1019,20 +1258,20 @@ class Blog
             die("Can't find this entry.");
         else
         {
-	    if (Session::isLogged() and !empty($entry["comments"][$idC])){
-		$comments=$this->_data[(int)$idE]["comments"];
-		$comments[$idC]=array($pseudo,$site,$comment);
-		$this->_data[(int)$idE]=array(
-		    "title" => $entry['title'],
-		    "text" => $entry['text'],
-		    "comments" => $comments,
-		    "comment" => $entry['comment'],
-		    "private" => $entry['private'],
-		    "tags" => $entry['tags']);
-	    }
-	    else{
-		die("Can not edit this comment.");
-	    }
+            if (Session::isLogged() and !empty($entry["comments"][$idC])){
+                $comments=$this->_data[(int)$idE]["comments"];
+                $comments[$idC]=array($pseudo,$site,$comment);
+                $this->_data[(int)$idE]=array(
+                    "title" => $entry['title'],
+                    "text" => $entry['text'],
+                    "comments" => $comments,
+                    "comment" => $entry['comment'],
+                    "private" => $entry['private'],
+                    "tags" => $entry['tags']);
+            }
+            else{
+                die("Can not edit this comment.");
+            }
         }
     }
 
@@ -1051,16 +1290,6 @@ class Blog
     }
 }
 
-
-/**
- * Captcha management class
- * 
- * Features:
- * - Use an ASCII font by default but can be customized
- *   (letter width should be the same)
- * - generate random strings with 5 letters
- * - convert string into captcha using the ASCII font
- */
 
 class Captcha
 {
@@ -1152,8 +1381,6 @@ class Captcha
         return $str_out;
     }
 }
-
-
 
 class MyTool
 {
@@ -1325,56 +1552,25 @@ class MyTool
 
 }
 
-
-/**
- * Session management class
- * http://www.developpez.net/forums/d51943/php/langage/sessions/
- * http://sebsauvage.net/wiki/doku.php?id=php:session
- * http://sebsauvage.net/wiki/doku.php?id=php:shaarli
- *
- * Features:
- * - Everything is stored on server-side (we do not trust client-side data,
- *   such as cookie expiration)
- * - IP addresses + user agent are checked on each access to prevent session
- *   cookie hijacking (such as Firesheep)
- * - Session expires on user inactivity (Session expiration date is
- *   automatically updated everytime the user accesses a page.)
- * - A unique secret key is generated on server-side for this session
- *   (and never sent over the wire) which can be used
- *   to sign forms (HMAC) (See $_SESSION['uid'] )
- * - Token management to prevent XSRF attacks.
- * 
- * TODO:
- * - log login fail
- * - prevent brute force (ban IP)
- *
- * HOWTOUSE:
- * - Just call Session::init(); to initialize session and
- *   check if connected with Session::isLogged()
- */
-
 class Session
-{  
-    // If the user does not access any page within this time,
-    // his/her session is considered expired (in seconds).
-    public static $inactivity_timeout = 3600;
+{
+    public static $inactivityTimeout = 3600;
+
     private static $_instance;
- 
-    // constructor
+
     private function __construct()
     {
         // Use cookies to store session.
         ini_set('session.use_cookies', 1);
         // Force cookies for session  (phpsessionID forbidden in URL)
         ini_set('session.use_only_cookies', 1);
-        if (!session_id()){
+        if (!session_id()) {
             // Prevent php to use sessionID in URL if cookies are disabled.
             ini_set('session.use_trans_sid', false);
-            session_start(); 
+            session_start();
         }
-    } 
+    }
 
-    // initialize session
     public static function init()
     {
         if (!isset(self::$_instance)) {
@@ -1382,9 +1578,7 @@ class Session
         }
     }
 
-    // Returns the IP address, user agent and language of the client
-    // (Used to prevent session cookie hijacking.)
-    private static function _allInfos()
+    private static function _allInfo()
     {
         $infos = $_SERVER["REMOTE_ADDR"];
         if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
@@ -1395,78 +1589,86 @@ class Session
         }
         $infos.='_'.$_SERVER['HTTP_USER_AGENT'];
         $infos.='_'.$_SERVER['HTTP_ACCEPT_LANGUAGE'];
+
         return sha1($infos);
     }
- 
-    // Check that user/password is correct and init some SESSION variables.
-    public static function login($login,$password,$login_test,$password_test,
-                                 $pValues = array())
+
+    public static function login (
+        $login,
+        $password,
+        $loginTest,
+        $passwordTest,
+        $pValues = array())
     {
-        foreach ($pValues as $key => $value) { 
-            $_SESSION[$key] = $value; 
-        } 
-        if ($login==$login_test && $password==$password_test){
-            // generate unique random number to sign forms (HMAC)
-            $_SESSION['uid'] = sha1(uniqid('',true).'_'.mt_rand());
-            $_SESSION['info']=Session::_allInfos(); 
+        if ($login == $loginTest && $password==$passwordTest) {
+            // Generate unique random number to sign forms (HMAC)
+            $_SESSION['uid'] = sha1(uniqid('', true).'_'.mt_rand());
+            $_SESSION['info']=Session::_allInfo();
             $_SESSION['username']=$login;
             // Set session expiration.
-            $_SESSION['expires_on']=time()+Session::$inactivity_timeout;
+            $_SESSION['expires_on']=time()+Session::$inactivityTimeout;
+
+            foreach ($pValues as $key => $value) {
+                $_SESSION[$key] = $value;
+            }
+
             return true;
         }
+        Session::logout();
+
         return false;
     }
- 
-    // Force logout
-    public static function logout()
-    {  
-	unset($_SESSION['uid'],$_SESSION['info'],$_SESSION['expires_on']);
-    } 
 
-    // Make sure user is logged in.
+    public static function logout()
+    {
+        unset($_SESSION['uid'], $_SESSION['info'], $_SESSION['expires_on']);
+    }
+
     public static function isLogged()
     {
         if (!isset ($_SESSION['uid'])
-            || $_SESSION['info']!=Session::_allInfos()
-            || time()>=$_SESSION['expires_on']){
-	    Session::logout();
+            || $_SESSION['info']!=Session::_allInfo()
+            || time()>=$_SESSION['expires_on']) {
+            Session::logout();
+
             return false;
         }
         // User accessed a page : Update his/her session expiration date.
-        $_SESSION['expires_on']=time()+Session::$inactivity_timeout;  
+        if (time()+Session::$inactivityTimeout > $_SESSION['expires_on']) {
+            $_SESSION['expires_on'] = time()+Session::$inactivityTimeout;
+        }
+
         return true;
     }
 
-    // Returns a token.
     public static function getToken()
     {
-        if (!isset($_SESSION['tokens'])){
+        if (!isset($_SESSION['tokens'])) {
             $_SESSION['tokens']=array();
         }
         // We generate a random string and store it on the server side.
-        $rnd = sha1(uniqid('',true).'_'.mt_rand());
-        $_SESSION['tokens'][$rnd]=1;  
+        $rnd = sha1(uniqid('', true).'_'.mt_rand());
+        $_SESSION['tokens'][$rnd]=1;
+
         return $rnd;
     }
 
-    // Tells if a token is ok. Using this function will destroy the token.
-    // return true if token is ok.
     public static function isToken($token)
     {
-        if (isset($_SESSION['tokens'][$token]))
-        {
+        if (isset($_SESSION['tokens'][$token])) {
             unset($_SESSION['tokens'][$token]); // Token is used: destroy it.
+
             return true; // Token is ok.
         }
+
         return false; // Wrong token, or already used.
     }
-}
-?>
-<?php
+}//end class
 
 MyTool::initPHP();
 Session::init();
-$pc = new Blog_Conf(CONFIG_FILE, BLOG_VERSION);
+
+$pc = new Blog_Conf(CONFIG_FILE, MENU_FILE, BLOG_VERSION);
 $pb = new Blog(DATA_FILE, $pc);
 $pp = new Blog_Page(STYLE_FILE);
 
@@ -1485,8 +1687,10 @@ if (isset($_GET['login'])){
             sha1($_POST['password'].$_POST['login'].$pc->salt)
         )) {
             if (!empty($_POST['longlastingsession'])){
-                $_SESSION['longlastingsession'] = 31536000; // (31536000 seconds = 1 year)
-                $_SESSION['expires_on'] = time() + $_SESSION['longlastingsession'];
+                // (31536000 seconds = 1 year)
+                $_SESSION['longlastingsession'] = 31536000;
+                $_SESSION['expires_on'] =
+                    time() + $_SESSION['longlastingsession'];
                 session_set_cookie_params($_SESSION['longlastingsession']);
             } else {
                 session_set_cookie_params(0); // when browser closes
@@ -1514,8 +1718,9 @@ if (isset($_GET['login'])){
     if (isset($_POST['save'])){
         $pc->hydrate($_POST);
                 
-        if (!$pc->write())
+        if (!$pc->write(CONFIG_FILE)) {
             die("Can't write to ".CONFIG_FILE);
+        }
                 
         header('Location: '.MyTool::getUrl());
         exit();
@@ -1523,7 +1728,7 @@ if (isset($_GET['login'])){
         header('Location: '.MyTool::getUrl());
         exit();
     } else {
-        echo $pp->htmlPage('Configuration',$pp->configPage($pc));
+        echo $pp->htmlPage('Configuration', $pp->configPage($pc));
         exit();
     }
 } elseif (isset($_GET['edit'])){
@@ -1537,14 +1742,13 @@ if (isset($_GET['login'])){
                 $id = time();
             }
             if (!empty($_POST['date'])){
-                $new_date = strtotime($_POST['date']);
+                $newDate = strtotime($_POST['date']);
+            } else{
+                $newDate = time();
             }
-            else{
-                $new_date = time();
-            }
-            if ((int)$new_date != (int)$_GET['edit'] && !empty($new_date)){
+            if ((int) $newDate != (int) $_GET['edit'] && !empty($newDate)){
                 $pb->deleteEntry($_GET['edit']);
-                $id = $new_date;
+                $id = $newDate;
             }
 
             $pb->editEntry(
@@ -1553,9 +1757,12 @@ if (isset($_GET['login'])){
                 $_POST['text'],
                 $_POST['comments'],
                 (isset($_POST['private']) ? 1 : 0),
-                $_POST['tags']);
-            if (!$pb->writeData())
+                $_POST['tags']
+            );
+
+            if (!$pb->writeData()) {
                 die("Can't write to ".$pb->file);
+            }
 
             if ($pc->cache){
                 if(file_exists(CACHE_DIR.'/rss.xml')){
@@ -1571,17 +1778,19 @@ if (isset($_GET['login'])){
             header('Location: '.MyTool::getUrl().'?'.$id);
             exit();
         }
-        echo $pp->htmlPage('Edit entry',$pp->editPage($pb));
+        echo $pp->htmlPage('Edit entry', $pp->editPage($pb));
         exit();
     } else {
         if (isset($_POST['save'])) {
             $_SESSION['autosave'] = array();
             $_SESSION['autosave']['title'] = htmlspecialchars($_POST['title']);
-            $_SESSION['autosave']['text'] = htmlspecialchars($_POST['title']);
+            $_SESSION['autosave']['text'] = htmlspecialchars($_POST['text']);
             $_SESSION['autosave']['tags'] = htmlspecialchars($_POST['tags']);
             $_SESSION['autosave']['date'] = htmlspecialchars($_POST['date']);
-            $_SESSION['autosave']['comment'] = htmlspecialchars($_POST['comment']);
-            $_SESSION['autosave']['private'] = htmlspecialchars($_POST['private']);
+            $_SESSION['autosave']['comment'] =
+                htmlspecialchars($_POST['comment']);
+            $_SESSION['autosave']['private'] =
+                htmlspecialchars($_POST['private']);
         }
         header('Location: '.MyTool::getUrl().'?login');
         exit();
@@ -1590,8 +1799,9 @@ if (isset($_GET['login'])){
 // Delete an entry
     $pb->loadData();
     $pb->deleteEntry($_GET['delete']);
-    if (!$pb->writeData())
+    if (!$pb->writeData()) {
         die("Can't write to ".$pb->file);
+    }
         
     if ($pc->cache){
         if(file_exists(CACHE_DIR.'/rss.xml')){
@@ -1606,40 +1816,101 @@ if (isset($_GET['login'])){
     }
     header('Location: '.MyTool::getUrl());
     exit();
+} elseif (isset($_GET['editmenu']) && Session::isLogged()) {
+    if (isset($_POST['save'])){
+        if (!Session::isToken($_POST['token'])) {
+            die('Wrong token.');
+        }
+
+        $menu = rtrim(str_replace("\r\n", "|", $_POST['menu']), '|');
+
+        $pb->pc->setExtra($_POST['extra']);
+        $pb->pc->setMenu($menu);
+        if (!$pb->pc->write(MENU_FILE)) {
+            die("Can't write to ".MENU_FILE);
+        }
+
+        $rurl = $_POST['returnurl'];
+        if (empty($rurl)) {
+            $rurl = MyTool::getUrl();
+        }
+        
+        header('Location: '.$rurl);
+        exit;
+    } elseif (isset($_POST['cancel'])) {
+        $rurl = $_POST['returnurl'];
+        if (empty($rurl)) {
+            $rurl = MyTool::getUrl();
+        }
+        
+        header('Location: '.$rurl);
+        exit;
+    } else {
+        echo $pp->htmlPage(
+            strip_tags(MyTool::formatText($pb->pc->title)),
+            $pp->editMenuPage($pc)
+        );
+        exit();
+    }
 } elseif (isset($_GET['page'])) {
 // Entries by page
     $pb->loadData();
-    $page = (int)$_GET['page'];
-    echo $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->indexPage($pb,$page));
+    $page = (int) $_GET['page'];
+    echo $pp->htmlPage(
+        strip_tags(MyTool::formatText($pb->pc->title)),
+        $pp->indexPage($pb, $page)
+    );
     exit();
 } elseif (isset($_GET['rss'])){
-// RSS in cache
-    if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/rss.xml')){
-        exit();
-    }
-    else{
-        $pb->loadData();
-        $page = $pp->rssPage($pb);
-        if ($pc->cache){
-            $pp->writeCachePage(CACHE_DIR.'/rss.xml', $page);
+// RSS articles or comments
+    if (empty($_GET['rss'])) {
+        // articles
+        if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/rss.xml')) {
+            exit();
+        } else {
+            $pb->loadData();
+            $page = $pp->rssPage($pb);
+            if ($pc->cache){
+                $pp->writeCachePage(CACHE_DIR.'/rss.xml', $page);
+            }
+            echo $page;
+            exit();
         }
-        echo $page;
-        exit();
+    } elseif ($_GET['rss'] == 'comments') {
+        // comments
+        if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/comments.xml')){
+            exit();
+        } else {
+            $pb->loadData();
+            $page = $pp->rssCommentsPage($pb);
+            if ($pc->cache){
+                $pp->writeCachePage(CACHE_DIR.'/comments.xml', $page);
+            }
+            echo $page;
+            exit();
+        }
+    } else {
+        header('Location: '.MyTool::getUrl());
+        exit(); 
     }
 } elseif (empty($_SERVER['QUERY_STRING'])){
 // Index page
     if (Session::isLogged()){
         $pb->loadData();
-        echo $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->indexPage($pb,1));
+        echo $pp->htmlPage(
+            strip_tags(MyTool::formatText($pb->pc->title)),
+            $pp->indexPage($pb, 1)
+        );
         exit();
-    }
-    else {
+    } else {
         if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/index.html')){
             exit();
-        }
-        else{
+        } else {
             $pb->loadData();
-            $page= $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->indexPage($pb,1));
+            $page= $pp->htmlPage(
+                strip_tags(MyTool::formatText($pb->pc->title)),
+                $pp->indexPage($pb, 1)
+            );
             if ($pc->cache){
                 $pp->writeCachePage(CACHE_DIR.'/index.html', $page);
             }
@@ -1649,31 +1920,36 @@ if (isset($_GET['login'])){
     }
 } else {
 // Permalink to an entry
-    $id = (int)$_SERVER['QUERY_STRING'];
+    $id = (int) $_SERVER['QUERY_STRING'];
 
     if (isset($_POST['send']) || isset($_POST['preview'])){
         $pb->loadData(true);
-        $input_pseudo=htmlspecialchars($_POST['pseudo']);
-        $input_comment=htmlspecialchars($_POST['comment']);
-        $input_site=htmlspecialchars($_POST['site']);
-        if (empty($input_pseudo)){
-            $input_pseudo="<em>Anonymous</em>";
+        $inputPseudo=htmlspecialchars($_POST['pseudo']);
+        $inputComment=htmlspecialchars($_POST['comment']);
+        $inputSite=htmlspecialchars($_POST['site']);
+        if (empty($inputPseudo)){
+            $inputPseudo="<em>Anonymous</em>";
         }
         if (isset($_POST['captcha'])) {
-            $input_captcha=strtoupper(htmlspecialchars($_POST['captcha']));
+            $inputCaptcha=strtoupper(htmlspecialchars($_POST['captcha']));
+            if ($_SESSION['captcha']==$inputCaptcha) {
+                $_SESSION['captcha'] = 'human';
+            }
         }
             
                 
-        if (!empty($input_comment)
+        if (!empty($inputComment)
             && isset($_POST['send'])
             && (Session::isLogged()
-                || $_SESSION['captcha']==$input_captcha)
-            && (empty($input_site)
-                || (!empty($input_site)
-                    && MyTool::isUrl($input_site)))){    
-            $pb->addComment($id,$input_pseudo,$input_site,$input_comment);
-            if (!$pb->writeData())
+                || $_SESSION['captcha']=='human')
+            && (empty($inputSite)
+                || (!empty($inputSite)
+                    && MyTool::isUrl($inputSite)))) {
+            unset($_SESSION['captcha']);
+            $pb->addComment($id, $inputPseudo, $inputSite, $inputComment);
+            if (!$pb->writeData()) {
                 die("Can't write to ".$pb->file);
+            }
 
             if ($pc->cache){
                 if(file_exists(CACHE_DIR.'/index.html')){
@@ -1685,62 +1961,88 @@ if (isset($_GET['login'])){
             }
             header('Location: '.MyTool::getUrl().'?'.$id);
             exit();
-        }
-        else{
+        } else {
             if (isset($_POST["preview"])){
-                $pb->addComment($id,$input_pseudo,$input_site,$input_comment);
+                $pb->addComment($id, $inputPseudo, $inputSite, $inputComment);
             }
-            echo $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->entryPage($pb,$id,0,htmlspecialchars($_POST['pseudo']),$input_site,$input_comment));
+            echo $pp->htmlPage(
+                strip_tags(MyTool::formatText($pb->pc->title)),
+                $pp->entryPage(
+                    $pb,
+                    $id,
+                    0,
+                    htmlspecialchars($_POST['pseudo']),
+                    $inputSite,
+                    $inputComment
+                )
+            );
             exit();     
         }
-    } else if (isset($_POST['edit']) and Session::isLogged()){
+    } elseif (isset($_POST['edit']) and Session::isLogged()){
         $pb->loadData();
-        $input_pseudo=$_POST['pseudo'];
-        $input_comment=$_POST['comment'];
-        $input_site=$_POST['site'];
-        $ids=explode("_",$_SERVER['QUERY_STRING']);
-        $pb->editComment($id,$ids[1],$input_pseudo,$input_site,$input_comment);
-        if (!$pb->writeData())
+        $inputPseudo=$_POST['pseudo'];
+        $inputComment=$_POST['comment'];
+        $inputSite=$_POST['site'];
+        $ids=explode("_", $_SERVER['QUERY_STRING']);
+        $pb->editComment($id, $ids[1], $inputPseudo, $inputSite, $inputComment);
+        if (!$pb->writeData()) {
             die("Can't write to ".$pb->file);
+        }
+
         header('Location: '.MyTool::getUrl().'?'.$id);
         exit();
-    }
-    else {
+    } else {
         if (Session::isLogged()){
             $pb->loadData();
-            if (strpos($_SERVER['QUERY_STRING'],'_') === false){
-                echo $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->entryPage($pb,$id));
-            }
-            else{
-                $ids=explode("_",$_SERVER['QUERY_STRING']);
+            if (strpos($_SERVER['QUERY_STRING'], '_') === false){
+                echo $pp->htmlPage(
+                    strip_tags(MyTool::formatText($pb->pc->title)),
+                    $pp->entryPage($pb, $id)
+                );
+            } else {
+                $ids=explode("_", $_SERVER['QUERY_STRING']);
                 $entry = $pb->getEntry($id);;
                 if (!empty($entry['comments'][$ids[1]])){
-                    echo $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->entryPage($pb,$id,0,$entry['comments'][$ids[1]][0],$entry['comments'][$ids[1]][1],$entry['comments'][$ids[1]][2]));
-                }
-                else{
-                    echo $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->entryPage($pb,$id));
+                    echo $pp->htmlPage(
+                        strip_tags(MyTool::formatText($pb->pc->title)),
+                        $pp->entryPage(
+                            $pb,
+                            $id,
+                            0,
+                            $entry['comments'][$ids[1]][0],
+                            $entry['comments'][$ids[1]][1],
+                            $entry['comments'][$ids[1]][2]
+                        )
+                    );
+                } else {
+                    echo $pp->htmlPage(
+                        strip_tags(MyTool::formatText($pb->pc->title)),
+                        $pp->entryPage($pb, $id)
+                    );
                 }
             }
             exit();
-        }
-        else {
+        } else {
             if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/'.$id.'.html')){
                 exit();
             } else {
                 $pb->loadData();
                 if ($pc->cache && $pb->getEntry($id)){
-                    $page = $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->entryPage($pb,$id,1));
+                    $page = $pp->htmlPage(
+                        strip_tags(MyTool::formatText($pb->pc->title)),
+                        $pp->entryPage($pb, $id, 1)
+                    );
                     $pp->writeCachePage(CACHE_DIR.'/'.$id.'.html', $page);
                     echo $page;
                     exit();
-                }
-                else{
-                    echo $pp->htmlPage(strip_tags(MyTool::formatText($pb->pc->title)),$pp->entryPage($pb,$id));
+                } else{
+                    echo $pp->htmlPage(
+                        strip_tags(MyTool::formatText($pb->pc->title)),
+                        $pp->entryPage($pb, $id)
+                    );
                     exit();
                 }
             }   
         } 
     }
 }
-
-?>
