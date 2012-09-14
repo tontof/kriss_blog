@@ -850,7 +850,7 @@ HTML;
         <p>
           '.$menu;
 	if (Session::isLogged()){
-	    $str .= ' | <a href="?editmenu" class="admin">Edit menu</a> | <a href="?edit" class="admin">New entry</a> | <a href="?config" class="admin">Configuration</a> | <a href="?logout" class="admin">Logout</a>';
+	    $str .= ' | <a href="?edit" class="admin">New entry</a> | <a href="?editmenu" class="admin">Edit menu</a> | <a href="?private" class="admin">Show Private</a> | <a href="?config" class="admin">Configuration</a> | <a href="?logout" class="admin">Logout</a>';
 	}
 	$str .= '
         </p>
@@ -1120,6 +1120,15 @@ class Blog
     public function getArticleNumber()
     {
         return count($this->_data);
+    }
+    
+    public function keepPrivate()
+    {
+        foreach($this->_data as $id => $entry) {
+            if ((empty($entry['private']) || $entry['private']!=1)) {
+                $this->deleteEntry($id);
+            }
+        }
     }
 
     public function loadData($force = false)
@@ -1817,6 +1826,13 @@ if (isset($_GET['login'])){
     }
     header('Location: '.MyTool::getUrl());
     exit();
+} elseif (isset($_GET['private']) && Session::isLogged()) {
+    $pb->loadData();
+    $pb->keepPrivate();
+    echo $pp->htmlPage(
+        strip_tags(MyTool::formatText($pb->pc->title)),
+        $pp->indexPage($pb, 1)
+    );
 } elseif (isset($_GET['editmenu']) && Session::isLogged()) {
     if (isset($_POST['save'])){
         if (!Session::isToken($_POST['token'])) {
