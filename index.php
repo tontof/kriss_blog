@@ -1479,12 +1479,12 @@ class MyTool
             '/<code_php>(.*?)<\/code_php>/is',
             create_function(
                 '$matches',
-                'return highlight_string("<?php $matches[1] ?>",true);'),
+                'return highlight_string("<?php $matches[1]",true);'),
             $text);
         $text = preg_replace('/<br \/>/is','',$text);
 
         $text = preg_replace(
-            '#(^|\s)([a-z]+://([^\s\w/]?[\w/])*)(\s|$)#im',
+            '#(^|\s)([a-z]+://([^\s\w/]?[-\w/])*)(\s|$)#im',
             '\\1<a href="\\2">\\2</a>\\4',
             $text);
         $text = preg_replace(
@@ -1589,6 +1589,7 @@ class Session
         if (!session_id()) {
             // Prevent php to use sessionID in URL if cookies are disabled.
             ini_set('session.use_trans_sid', false);
+            session_name('kriss');
             session_start();
         }
     }
@@ -1996,7 +1997,7 @@ if (isset($_GET['login'])) {
             }
             echo $pp->htmlPage(
                 $pb->getTitle($id)
-                . " | " . strip_tags(MyTool::formatText($pb->pc->title)),
+                . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
                 $pp->entryPage(
                     $pb,
                     $id,
@@ -2027,7 +2028,7 @@ if (isset($_GET['login'])) {
             if (strpos($_SERVER['QUERY_STRING'], '_') === false) {
                 echo $pp->htmlPage(
                     $pb->getTitle($id)
-                    . " | " . strip_tags(MyTool::formatText($pb->pc->title)),
+                    . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
                     $pp->entryPage($pb, $id)
                 );
             } else {
@@ -2036,7 +2037,7 @@ if (isset($_GET['login'])) {
                 if (!empty($entry['comments'][$ids[1]])) {
                     echo $pp->htmlPage(
                         $pb->getTitle($id)
-                        . " | " . strip_tags(MyTool::formatText($pb->pc->title)),
+                        . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
                         $pp->entryPage(
                             $pb,
                             $id,
@@ -2049,7 +2050,7 @@ if (isset($_GET['login'])) {
                 } else {
                     echo $pp->htmlPage(
                         $pb->getTitle($id)
-                        . " | " . strip_tags(MyTool::formatText($pb->pc->title)),
+                        . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
                         $pp->entryPage($pb, $id)
                     );
                 }
@@ -2071,7 +2072,7 @@ if (isset($_GET['login'])) {
                 } else {
                     echo $pp->htmlPage(
                         $pb->getTitle($id)
-                        . " | " . strip_tags(MyTool::formatText($pb->pc->title)),
+                        . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
                         $pp->entryPage($pb, $id)
                     );
                     exit();
