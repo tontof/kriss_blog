@@ -1,4 +1,4 @@
-kriss_blog (version 5)
+kriss_blog (version 6)
 ======================
 
 A simple and smart (or stupid) blogging tool.
@@ -39,6 +39,7 @@ Features
   * New template in source (PageBuilder)
   * Static page creation
   * Menu + extra using static page
+  * Permalink with slug
 
 TODOs
 =====
