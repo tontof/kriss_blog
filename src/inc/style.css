@@ -1,0 +1,182 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+.admin {
+  color: red !important;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #eee;
+  color: #000;
+  width:800px;
+  margin:auto;
+}
+
+img {
+  max-width: 100%;
+}
+
+#global {
+  border: 2px solid #999;
+  border-top: none;
+  padding: 1em 1.5em 0;
+  background: #fff;
+}
+
+#title {
+  color: #666;
+  border-bottom: 1px dotted #999;
+}
+
+#subtitle {
+  text-align: right;
+  font-style: italic;
+  margin-bottom: 1em;
+  color: #666;
+}
+
+#nav {
+  border: 1px dashed #999;
+  font-size: .9em;
+  padding: 0.2em;
+  color: #666;
+  height: 1.3em;
+}
+
+.nav {
+  list-style-type:none;
+}
+
+.nav li {
+  float:left;
+  margin-right:12px;
+}
+
+#status {
+  margin: 0;
+  font-size: 0.7em;
+  text-align: center;
+  clear: both;
+  background: #fff;
+  width: 100%;
+}
+
+#extra {
+  background: #eee;
+  border-radius: 0 0 9px 9px;
+  border-style: none solid solid;
+  border-width: medium 1px 1px;
+  box-shadow: 0 2px 8px 0 rgba(51, 51, 51, 0.5);
+  font-size: 10pt;
+  font-weight: bold;
+  padding: 1px 20px 3px;
+  position: absolute;
+  left: 75%;
+  top: 0;
+}
+
+.extratoshow {
+  display: none;
+}
+
+#extra:hover .extratohide {
+  display: none;
+}
+
+#extra:hover .extratoshow {
+  display: block;
+}
+
+.pagination {
+  list-style-type: none;
+  text-align: center;
+  margin: .5em;
+}
+
+.pagination li {
+  display: inline;
+  margin: .3em;
+}
+
+.selected {
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+.article, .comment {
+  border: 1px dotted #999;
+  padding: .5em;
+  margin: 1.5em 0;
+  overflow: auto;
+}
+
+.subtitle {
+  text-align: right;
+  font-style: italic;
+  color: #666;
+  border-bottom: 1px dotted #999;
+  margin-bottom: 1em;
+}
+
+.content{
+  padding:.5em;
+}
+
+.link {
+  font-size: .9em;
+  float: right;
+  border: 1px dotted #999;
+  padding: .3em;
+}
+
+#new_comment button {
+  border: 1px solid #000;
+  border-radius: 4px;
+  margin: 0 .2em;
+  background: #fff;
+  height:32px;
+  width:32px;
+}
+
+#new_comment button:hover {
+  border: 1px solid #000;
+  background: #999;
+}
+
+
+fieldset{
+  padding: 1em;
+}
+
+legend {
+  font-weight: bold;
+  margin: 0 .42em;
+  padding: 0 .42em;
+}
+
+input[type=text], input[type=password], textarea{
+  border: 1px solid #000;
+  margin: .2em 0;
+  padding: .2em;
+  font-size: 1em;
+  width:100%;
+}
+
+a:active, a:visited, a:link {
+  text-decoration: underline;
+  color: #666;
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+@media (max-width: 750px) {
+ body{
+  width:100%;
+  height:100%;
+ }
+}

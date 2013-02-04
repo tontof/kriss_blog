@@ -8,94 +8,133 @@
  * - generate random strings with 5 letters
  * - convert string into captcha using the ASCII font
  */
-
 class Captcha
 {
     public $alphabet="";
-    public $alphabet_font;
-    public $col_font = 0;
-    public $row_font = 0;
+    public $alphabetFont;
+    public $colFont = 0;
+    public $rowFont = 0;
 
-    public function __construct($alpha_font=array(
-                                    'A'=>" _ |_|| |",
-                                    'B'=>" _ |_)|_)",
-                                    'C'=>" __|  |__",
-                                    'D'=>" _ | \\|_/",
-                                    'E'=>" __|__|__",
-                                    'F'=>" __|_ |  ",
-                                    'G'=>" __/ _\\_/",
-                                    'H'=>"   |_|| |",
-                                    'I'=>"___ | _|_",
-                                    'J'=>"___ | _| ",
-                                    'K'=>"   |_/| \\",
-                                    'L'=>"   |  |__",
-                                    'M'=>"_ _|||| |",
-                                    'N'=>"__ | || |",
-                                    'O'=>" _ / \\\\_/",
-                                    'P'=>" _ |_||  ",
-                                    'Q'=>" _ | ||_\\",
-                                    'R'=>" _ |_|| \\",
-                                    'S'=>" _ (_  _)",
-                                    'T'=>"___ |  | ",
-                                    'U'=>"   | ||_|",
-                                    'V'=>"   \\ / v ",
-                                    'W'=>"   \\ / w ",
-                                    'X'=>"   \\_// \\",
-                                    'Y'=>"   |_| _|",
-                                    'Z'=>"___ / /__",
-                                    '0'=>" _ |/||_|",
-                                    '1'=>"    /|  |",
-                                    '2'=>" _  _||_ ",
-                                    '3'=>" _  _| _|",
-                                    '4'=>"   |_|  |",
-                                    '5'=>" _ |_  _|",
-                                    '6'=>" _ |_ |_|",
-                                    '7'=>" __  | / ",
-                                    '8'=>" _ |_||_|",
-                                    '9'=>" _ |_| _|"),
-                                $row_font=3) {
-        $this->alphabet_font = $alpha_font;
+    /**
+     * Constructor
+     *
+     *  _   _   __  _   __  __  __     ___ ___         _ _ 
+     * |_| |_) |   | \ |__ |_  / _ |_|  |   |  |_/ |   ||| 
+     * | | |_) |__ |_/ |__ |   \_/ | | _|_ _|  | \ |__ | | 
+     *
+     * __   _   _   _   _   __ ___                     ___ 
+     * | | / \ |_| | | |_| (_   |  | | \ / \ / \_/ |_|  /  
+     * | | \_/ |   |_\ | \ __)  |  |_|  v   w  / \  _| /__ 
+     *
+     *  _       _   _       _   _   __  _   _  
+     * |/|  /|  _|  _| |_| |_  |_    | |_| |_| 
+     * |_|   | |_   _|   |  _| |_|  /  |_|  _| 
+     *
+     * @param array $alphaFont default alphabet
+     * @param int   $rowFont   number of row for one letter
+     */
+    public function __construct(
+        $alphaFont = array(
+            'A' => " _ |_|| |",
+            'B' => " _ |_)|_)",
+            'C' => " __|  |__",
+            'D' => " _ | \\|_/",
+            'E' => " __|__|__",
+            'F' => " __|_ |  ",
+            'G' => " __/ _\\_/",
+            'H' => "   |_|| |",
+            'I' => "___ | _|_",
+            'J' => "___ | _| ",
+            'K' => "   |_/| \\",
+            'L' => "   |  |__",
+            'M' => "_ _|||| |",
+            'N' => "__ | || |",
+            'O' => " _ / \\\\_/",
+            'P' => " _ |_||  ",
+            'Q' => " _ | ||_\\",
+            'R' => " _ |_|| \\",
+            'S' => " __(_ __)",
+            'T' => "___ |  | ",
+            'U' => "   | ||_|",
+            'V' => "   \\ / v ",
+            'W' => "   \\ / w ",
+            'X' => "   \\_// \\",
+            'Y' => "   |_| _|",
+            'Z' => "___ / /__",
+            '0' => " _ |/||_|",
+            '1' => "    /|  |",
+            '2' => " _  _||_ ",
+            '3' => " _  _| _|",
+            '4' => "   |_|  |",
+            '5' => " _ |_  _|",
+            '6' => " _ |_ |_|",
+            '7' => " __  | / ",
+            '8' => " _ |_||_|",
+            '9' => " _ |_| _|",
+        ),
+        $rowFont = 3
+    )
+    {
+        $this->alphabetFont = $alphaFont;
 
-        $keys = array_keys($this->alphabet_font);
+        $keys = array_keys($this->alphabetFont);
 
         foreach ($keys as $k) {
             $this->alphabet .= $k;
         }
 
         if ($keys[0]) {
-            $this->row_font = $row_font;
-            $this->col_font =
-                (int)strlen($this->alphabet_font[$keys[0]])/$this->row_font;
+            $this->rowFont = $rowFont;
+            $this->colFont = (int) strlen($this->alphabetFont[$keys[0]])/$this->rowFont;
         }
     }
 
-    public function generateString($len=5) {
-        $i=0;
-        $str='';
-        while ($i<$len) {
-            $str.=$this->alphabet[mt_rand(0,strlen($this->alphabet)-1)];
+    /**
+     * Generate a random string for captcha
+     * 
+     * @param int $len length of the generated string (default : 5)
+     *
+     * @return string $str generated string
+     */
+    public function generateString($len = 5)
+    {
+        $i = 0;
+        $str = '';
+        while ($i < $len) {
+            $str .= $this->alphabet[mt_rand(0, strlen($this->alphabet) - 1)];
             $i++;
         }
+
         return $str;
     }
 
-    public function convertString($str_in) {
-        $str_out="\n";
-        $str_out.='<pre>';
-        $str_out.="\n";
+    /**
+     * Convert a string into captcha
+     * 
+     * @param string $strIn String to convert into captcha
+     *
+     * @return string $strOut Captcha corresponding to the given string
+     */
+    public function convertString($strIn)
+    {
+        $strOut="\n";
+        $strOut.='<pre>';
+        $strOut.="\n";
         $i=0;
-        while($i<$this->row_font) {
+        while ($i<$this->rowFont) {
             $j=0;
-            while($j<strlen($str_in)) {
-                $str_out.= substr($this->alphabet_font[$str_in[$j]],
-                                  $i*$this->col_font,
-                                  $this->col_font)." ";
+            while ($j<strlen($strIn)) {
+                $strOut.= substr(
+                    $this->alphabetFont[$strIn[$j]],
+                    $i*$this->colFont,
+                    $this->colFont)." ";
                 $j++;
             }
-            $str_out.= "\n";
+            $strOut.= "\n";
             $i++;
         }
-        $str_out.='</pre>';
-        return $str_out;
+        $strOut.='</pre>';
+
+        return $strOut;
     }
 }

@@ -34,6 +34,11 @@ Features
   * Editable menus + extra menus
   * RSS comments
   * No captcha after preview
+* version 6
+  * No more Cache pages (temporary)
+  * New template in source (PageBuilder)
+  * Static page creation
+  * Menu + extra using static page
 
 TODOs
 =====

@@ -3,7 +3,7 @@
  * kriss_blog simple and smart (or stupid) blogging tool
  * Copyleft (C) 2012 Tontof - http://tontof.net
  *
- * PHP version 5
+ * PHP version 6
  *
  * picoBlog useless blogging tool
  * Copyleft (C) 2007-2010 BohwaZ - http://dev.kd2.org
@@ -25,13 +25,15 @@
 
 define('CACHE_DIR', 'cache');
 define('DATA_DIR', 'data');
-
+define('DOMAIN', 'blog');
+define('LOCALE', 'locale');
+// TODO : remove in version 7
+define('MENU_FILE', DATA_DIR.'/menu.php');
 define('DATA_FILE', DATA_DIR.'/data.php');
 define('CONFIG_FILE', DATA_DIR.'/config.php');
-define('MENU_FILE', DATA_DIR.'/menu.php');
 
 define('STYLE_FILE', 'style.css');
-define('BLOG_VERSION', 5);
+define('BLOG_VERSION', 6);
 
 define('PHPPREFIX', '<?php /* '); // Prefix to encapsulate data in php code.
 define('PHPSUFFIX', ' */ ?>'); // Suffix to encapsulate data in php code.
@@ -46,12 +48,25 @@ function __autoload($className)
     require_once 'class/'. $className . '.php';
 }
 
+// Check if php version is correct
 MyTool::initPHP();
+// Initialize Session
 Session::init();
+// Create Page Builder
+$pb = new PageBuilder('BlogPage');
+$pb->assign('version', BLOG_VERSION);
+$pb->assign('blogurl', MyTool::getUrl());
 
-$pc = new Blog_Conf(CONFIG_FILE, MENU_FILE, BLOG_VERSION);
-$pb = new Blog(DATA_FILE, $pc);
-$pp = new Blog_Page(STYLE_FILE);
+$kbc = new BlogConf(CONFIG_FILE, BLOG_VERSION);
+$kb = new Blog(DATA_FILE, MENU_FILE, $kbc);
+
+bindtextdomain("blog.fr_FR", './'.DATA_DIR.'/'.LOCALE);
+textdomain(DOMAIN.".".$kbc->locale);
+
+$pb->assign('blogtitle', $kbc->title);
+$pb->assign('blogdesc', $kbc->desc);
+$pb->assign('bloglogin', $kbc->login);
+$pb->assign('bloglanguage', substr($kbc->locale, 0, 2));
 
 if (isset($_GET['login'])) {
 // Login
@@ -62,10 +77,10 @@ if (isset($_GET['login'])) {
             die('Wrong token.');
         }
         if (Session::login(
-            $pc->login,
-            $pc->hash,
+            $kbc->login,
+            $kbc->hash,
             $_POST['login'],
-            sha1($_POST['password'].$_POST['login'].$pc->salt)
+            sha1($_POST['password'].$_POST['login'].$kbc->salt)
         )) {
             if (!empty($_POST['longlastingsession'])) {
                 // (31536000 seconds = 1 year)
@@ -78,61 +93,77 @@ if (isset($_GET['login'])) {
             }
             session_regenerate_id(true);
 
-            $rurl = $_POST['returnurl'];
-            if (empty($rurl) || strpos($rurl, '?login') !== false) {
-                $rurl = MyTool::getUrl();
-            }
-            header('Location: '.$rurl);
-            exit();
+            MyTool::redirect();
         }
         die("Login failed !");
     } else {
-        echo $pp->htmlPage('Login', $pp->loginPage());
+        $pb->assign('pagetitle', 'Login - '.strip_tags($kbc->title));
+        $pb->renderPage('login');
     }
 } elseif (isset($_GET['logout'])) {
 // Logout
     Session::logout();
-    header('Location: '.MyTool::getUrl());
-    exit();
+    MyTool::redirect();
 } elseif (isset($_GET['config']) && Session::isLogged()) {
 // Config
     if (isset($_POST['save'])) {
-        $pc->hydrate($_POST);
+        if (!Session::isToken($_POST['token'])) {
+            die('Wrong token.');
+        }
+        $kbc->hydrate($_POST);
 
-        if (!$pc->write(CONFIG_FILE)) {
+        if (!$kbc->write(CONFIG_FILE)) {
             die("Can't write to ".CONFIG_FILE);
         }
-
-        header('Location: '.MyTool::getUrl());
-        exit();
+        MyTool::redirect();
     } elseif (isset($_POST['cancel'])) {
-        header('Location: '.MyTool::getUrl());
-        exit();
+        MyTool::redirect();
     } else {
-        echo $pp->htmlPage('Configuration', $pp->configPage($pc));
-        exit();
+        $pb->assign('pagetitle', 'Config - '.strip_tags($kbc->title));
+        $pb->assign('kbcsite', htmlspecialchars($kbc->site));
+        $pb->assign('kbctitle', htmlspecialchars($kbc->title));
+        $pb->assign('kbcdesc', htmlspecialchars($kbc->desc));
+        $pb->assign('kbclocale', htmlspecialchars($kbc->locale));
+        $pb->assign('kbcdateformat', htmlspecialchars($kbc->dateformat));
+        $pb->assign('kbcbypage', (int) $kbc->bypage);
+        $pb->assign('kbccomments', (int) $kbc->comments);
+        $pb->assign('kbccache', (int) $kbc->cache);
+        $pb->assign('kbcreverseorder', (int) $kbc->reverseorder);
+        $pb->renderPage('config');
     }
 } elseif (isset($_GET['edit'])) {
 // Edit an entry
     if (Session::isLogged()) {
-        $pb->loadData();
+        $kb->loadData();
         if (isset($_POST['save'])) {
-            $id = (int) $_GET['edit'];
-
-            if (empty($_GET['edit'])) {
+            if (!Session::isToken($_POST['token'])) {
+                die('Wrong token.');
+            }
+            $id = $_GET['edit'];
+            if (empty($id)) {
                 $id = time();
             }
-            if (!empty($_POST['date'])) {
-                $newDate = strtotime($_POST['date']);
+            if (is_numeric($id)) {
+                if (!empty($_POST['date'])) {
+                    $newDate = strtotime($_POST['date']);
+                } else {
+                    $newDate = time();
+                }
+                if ($newDate != $id && !empty($newDate)) {
+                    $kb->deleteEntry($_GET['edit']);
+                    $id = $newDate;
+                }
             } else {
-                $newDate = time();
-            }
-            if ((int) $newDate != (int) $_GET['edit'] && !empty($newDate)) {
-                $pb->deleteEntry($_GET['edit']);
-                $id = $newDate;
+                $slug = MyTool::slugify($_POST['title']);
+                if ($id != 'page') {
+                    if ($id != $slug) {
+                        $kb->deleteEntry($id);
+                    }
+                }
+                $id = $slug;
             }
 
-            $pb->editEntry(
+            $kb->editEntry(
                 $id,
                 $_POST['title'],
                 $_POST['text'],
@@ -141,190 +172,167 @@ if (isset($_GET['login'])) {
                 $_POST['tags']
             );
 
-            if (!$pb->writeData()) {
-                die("Can't write to ".$pb->file);
+            if (!$kb->writeData()) {
+                die("Can't write to ".$kb->file);
             }
-
-            if ($pc->cache) {
-                if (file_exists(CACHE_DIR.'/rss.xml')) {
-                    unlink(CACHE_DIR.'/rss.xml');
-                }
-                if (file_exists(CACHE_DIR.'/index.html')) {
-                    unlink(CACHE_DIR.'/index.html');
-                }
-                if (file_exists(CACHE_DIR.'/'.$id.'.html')) {
-                    unlink(CACHE_DIR.'/'.$id.'.html');
-                }
-            }
-            header('Location: '.MyTool::getUrl().'?'.$id);
-            exit();
+            MyTool::redirect(MyTool::getUrl().'?'.$id);
+        } elseif (isset($_POST['cancel'])) {
+            MyTool::redirect();
         }
-        echo $pp->htmlPage('Edit entry', $pp->editPage($pb));
-        exit();
+
+        $title ='';
+        $text = '';
+        $tags='';
+        $comments = $kbc->comments;
+        $private = 0;
+        $date = '';
+        if (!empty($_GET['edit'])) {
+            $entry = $kb->getEntry($_GET['edit']);
+            $title = $entry['title'];
+            $text = $entry['text'];
+            $tags = $entry['tags'];
+            $comments = $entry['comment'];
+            $private = $entry['private'];
+            $date = date('Y-m-d H:i:s', (int) $_GET['edit']);
+        }
+        if (isset($_SESSION['autosave'])) {
+            $title = $_SESSION['autosave']['title'];
+            $text = $_SESSION['autosave']['text'];
+            $tags = $_SESSION['autosave']['tags'];
+            $date = $_SESSION['autosave']['date'];
+            $comments = $_SESSION['autosave']['comments'];
+            $private = $_SESSION['autosave']['private'];
+            unset($_SESSION['autosave']);
+        }
+
+        $pb->assign('id', htmlspecialchars($_GET['edit']));
+        $pb->assign('pagetitle', 'Edit - '.strip_tags($kbc->title));
+        $pb->assign('entrytitle', htmlspecialchars($title));
+        $pb->assign('entrytext', htmlspecialchars($text));
+        $pb->assign('entrytags', htmlspecialchars($tags));
+        $pb->assign('entrydate', htmlspecialchars($date));
+        $pb->assign('entrycomments', (int) $comments);
+        $pb->assign('entryprivate', (int) $private);
+        $pb->renderPage('edit');
     } else {
         if (isset($_POST['save'])) {
             $_SESSION['autosave'] = array();
-            $_SESSION['autosave']['title'] = htmlspecialchars($_POST['title']);
-            $_SESSION['autosave']['text'] = htmlspecialchars($_POST['text']);
-            $_SESSION['autosave']['tags'] = htmlspecialchars($_POST['tags']);
-            $_SESSION['autosave']['date'] = htmlspecialchars($_POST['date']);
-            $_SESSION['autosave']['comment'] =
-                htmlspecialchars($_POST['comment']);
-            $_SESSION['autosave']['private'] =
-                htmlspecialchars($_POST['private']);
+            $_SESSION['autosave']['title'] = $_POST['title'];
+            $_SESSION['autosave']['text'] = $_POST['text'];
+            $_SESSION['autosave']['tags'] = $_POST['tags'];
+            $_SESSION['autosave']['date'] = $_POST['date'];
+            $_SESSION['autosave']['comments'] = (int) $_POST['comments'];
+            $_SESSION['autosave']['private'] = isset($_POST['private']) ? 1 : 0;
         }
-        header('Location: '.MyTool::getUrl().'?login');
-        exit();
+        $pb->assign('pagetitle', 'Login - '.strip_tags($kbc->title));
+        $pb->renderPage('login');
     }
 } elseif (isset($_GET['delete']) && Session::isLogged()) {
 // Delete an entry
-    $pb->loadData();
-    $pb->deleteEntry($_GET['delete']);
-    if (!$pb->writeData()) {
-        die("Can't write to ".$pb->file);
+    $kb->loadData();
+    $kb->deleteEntry($_GET['delete']);
+    if (!$kb->writeData()) {
+        die("Can't write to ".$kb->file);
     }
-
-    if ($pc->cache) {
-        if (file_exists(CACHE_DIR.'/rss.xml')) {
-            unlink(CACHE_DIR.'/rss.xml');
-        }
-        if (file_exists(CACHE_DIR.'/index.html')) {
-            unlink(CACHE_DIR.'/index.html');
-        }
-        if (file_exists(CACHE_DIR.'/'.$_GET['delete'].'.html')) {
-            unlink(CACHE_DIR.'/'.$_GET['delete'].'.html');
-        }
-    }
-    header('Location: '.MyTool::getUrl());
-    exit();
+    MyTool::redirect();
 } elseif (isset($_GET['private']) && Session::isLogged()) {
-    $pb->loadData();
-    $pb->keepPrivate();
-    echo $pp->htmlPage(
-        strip_tags(MyTool::formatText($pb->pc->title)),
-        $pp->indexPage($pb, 1)
-    );
-} elseif (isset($_GET['editmenu']) && Session::isLogged()) {
-    if (isset($_POST['save'])) {
-        if (!Session::isToken($_POST['token'])) {
-            die('Wrong token.');
-        }
-
-        $menu = rtrim(str_replace("\r\n", "|", $_POST['menu']), '|');
-
-        $pb->pc->setExtra($_POST['extra']);
-        $pb->pc->setMenu($menu);
-        if (!$pb->pc->write(MENU_FILE)) {
-            die("Can't write to ".MENU_FILE);
-        }
-
-        $rurl = $_POST['returnurl'];
-        if (empty($rurl)) {
-            $rurl = MyTool::getUrl();
-        }
-
-        header('Location: '.$rurl);
-        exit;
-    } elseif (isset($_POST['cancel'])) {
-        $rurl = $_POST['returnurl'];
-        if (empty($rurl)) {
-            $rurl = MyTool::getUrl();
-        }
-
-        header('Location: '.$rurl);
-        exit;
+// private only / all entries
+    if (empty($_SESSION['privateonly'])) {
+        $_SESSION['privateonly']=1; // See only private links
     } else {
-        echo $pp->htmlPage(
-            strip_tags(MyTool::formatText($pb->pc->title)),
-            $pp->editMenuPage($pc)
-        );
-        exit();
+        unset($_SESSION['privateonly']); // See all links
     }
+    MyTool::redirect();
 } elseif (isset($_GET['page'])) {
 // Entries by page
-    $pb->loadData();
-    $page = (int) $_GET['page'];
-    echo $pp->htmlPage(
-        strip_tags(MyTool::formatText($pb->pc->title)),
-        $pp->indexPage($pb, $page)
-    );
-    exit();
+    $kb->loadData();
+    $pb->assign('menu', $kb->getEntry('menu'));
+    $pb->assign('extra', $kb->getEntry('extra'));
+    if (empty($_GET['page'])) {
+        $pb->assign('entries', $kb->filter(true));
+        $pb->assign('page', '');
+        $pb->assign('pages', '');
+        $pb->assign('list', true);
+    } else {
+        $page = (int) $_GET['page'];
+        $begin = ($page - 1) * $kbc->bypage;
+        $pb->assign('entries', $kb->getList($begin));
+        $pb->assign('page', $page);
+        $pb->assign('pages', $kb->getPagination());
+    }
+    $pb->assign('pagetitle', strip_tags($kbc->title));
+    $pb->assign('dateformat', $kbc->dateformat);
+    $pb->renderPage('index');
 } elseif (isset($_GET['rss'])) {
 // RSS articles or comments
+    $kb->loadData();
+
     if (empty($_GET['rss'])) {
         // articles
-        if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/rss.xml')) {
-            exit();
-        } else {
-            $pb->loadData();
-            $page = $pp->rssPage($pb);
-            if ($pc->cache) {
-                $pp->writeCachePage(CACHE_DIR.'/rss.xml', $page);
-            }
-            echo $page;
-            exit();
+        $kbc->reverseorder = true;
+        $kb->sortData();
+        $entries = $kb->getList();
+        foreach ($entries as $id => $entry) {
+            $entries[$id]['link']=MyTool::getUrl().'?'.MyTool::urlize($id, $entry['title']);
+            $entries[$id]['content']=$entries[$id]['text'];
         }
+        $pb->assign('entries', $entries);
+        $pb->renderPage('rss');
     } elseif ($_GET['rss'] == 'comments') {
         // comments
-        if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/comments.xml')) {
-            exit();
-        } else {
-            $pb->loadData();
-            $page = $pp->rssCommentsPage($pb);
-            if ($pc->cache) {
-                $pp->writeCachePage(CACHE_DIR.'/comments.xml', $page);
-            }
-            echo $page;
-            exit();
+        $entries = $kb->getComments();
+        foreach ($entries as $id => $entry) {
+            $entries[$id]['title']=$entries[$id]['author'];
         }
+        $pb->assign('entries', $entries);
+        $pb->renderPage('rss');
     } else {
-        header('Location: '.MyTool::getUrl());
-        exit();
+        MyTool::redirect(MyTool::getUrl());
     }
 } elseif (empty($_SERVER['QUERY_STRING'])) {
 // Index page
-    if (Session::isLogged()) {
-        $pb->loadData();
-        echo $pp->htmlPage(
-            strip_tags(MyTool::formatText($pb->pc->title)),
-            $pp->indexPage($pb, 1)
-        );
-        exit();
-    } else {
-        if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/index.html')) {
-            exit();
-        } else {
-            $pb->loadData();
-            $page= $pp->htmlPage(
-                strip_tags(MyTool::formatText($pb->pc->title)),
-                $pp->indexPage($pb, 1)
-            );
-            if ($pc->cache) {
-                $pp->writeCachePage(CACHE_DIR.'/index.html', $page);
-            }
-            echo $page;
-            exit();
-        }
-    }
+    $kb->loadData();
+    $page = 1;
+    $begin = ($page - 1) * $kbc->bypage;
+    $pb->assign('menu', $kb->getEntry('menu'));
+    $pb->assign('extra', $kb->getEntry('extra'));
+    $pb->assign('pagetitle', strip_tags($kbc->title));
+    $pb->assign('entries', $kb->getList($begin));
+    $pb->assign('page', $page);
+    $pb->assign('pages', $kb->getPagination());
+    $pb->assign('dateformat', $kbc->dateformat);
+    $pb->renderPage('index');
 } else {
 // Permalink to an entry
-    $id = (int) $_SERVER['QUERY_STRING'];
+    $kb->loadData();
+
+    if (preg_match("/^(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})\/(\d{2})\/(\d{2})-(.*)$/", $_SERVER['QUERY_STRING'], $matches) === 1) {
+        $id=strtotime($matches[1].'/'.$matches[2].'/'.$matches[3].' '.$matches[4].':'.$matches[5].':'.$matches[6]);
+    } else {
+        $id = (int) $_SERVER['QUERY_STRING'];
+    }
+
+    $entry = $kb->getEntry($id);
+    if (empty($entry)) {
+        $id = preg_replace("[^A-Za-z0-9\-]", "", $_SERVER['QUERY_STRING']);
+        if (Session::isLogged() || ($id != 'menu' && $id != 'extra')) {
+            $entry = $kb->getEntry($id);
+        }
+    }
 
     if (isset($_POST['send']) || isset($_POST['preview'])) {
-        $pb->loadData(true);
         $inputPseudo=htmlspecialchars($_POST['pseudo']);
         $inputComment=htmlspecialchars($_POST['comment']);
         $inputSite=htmlspecialchars($_POST['site']);
         if (empty($inputPseudo)) {
             $inputPseudo="<em>Anonymous</em>";
         }
-        if (isset($_POST['captcha'])) {
+        if (isset($_POST['captcha']) && empty($_POST['message'])) {
             $inputCaptcha=strtoupper(htmlspecialchars($_POST['captcha']));
             if ($_SESSION['captcha']==$inputCaptcha) {
                 $_SESSION['captcha'] = 'human';
             }
         }
-
 
         if (!empty($inputComment)
             && isset($_POST['send'])
@@ -334,108 +342,67 @@ if (isset($_GET['login'])) {
                 || (!empty($inputSite)
                     && MyTool::isUrl($inputSite)))) {
             unset($_SESSION['captcha']);
-            $pb->addComment($id, $inputPseudo, $inputSite, $inputComment);
-            if (!$pb->writeData()) {
-                die("Can't write to ".$pb->file);
+            $_SESSION['pseudo'] = $inputPseudo;
+            $_SESSION['site'] = $inputSite;
+            $kb->addComment($id, $inputPseudo, $inputSite, $inputComment);
+            if (!$kb->writeData()) {
+                die("Can't write to ".$kb->file);
             }
-
-            if ($pc->cache) {
-                if (file_exists(CACHE_DIR.'/index.html')) {
-                    unlink(CACHE_DIR.'/index.html');
-                }
-                if (file_exists(CACHE_DIR.'/'.$id.'.html')) {
-                    unlink(CACHE_DIR.'/'.$id.'.html');
-                }
-            }
-            header('Location: '.MyTool::getUrl().'?'.$id);
-            exit();
+            MyTool::redirect(MyTool::getUrl().'?'.$id);
         } else {
             if (isset($_POST["preview"])) {
-                $pb->addComment($id, $inputPseudo, $inputSite, $inputComment);
+                $kb->addComment($id, $inputPseudo, $inputSite, $inputComment);
             }
-            echo $pp->htmlPage(
-                $pb->getTitle($id)
-                . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
-                $pp->entryPage(
-                    $pb,
-                    $id,
-                    0,
-                    htmlspecialchars($_POST['pseudo']),
-                    $inputSite,
-                    $inputComment
-                )
-            );
-            exit();
+            $entry = $kb->getEntry($id); // update entry
+            $pb->assign('pagetitle', $entry['title'] . " - " . strip_tags($kbc->title));
+            $pb->assign('inputpseudo', empty($_POST['pseudo'])?'':$inputPseudo);
+            $pb->assign('inputsite', $inputSite);
+            $pb->assign('inputcomment', $inputComment);
         }
-    } elseif (isset($_POST['edit']) and Session::isLogged()) {
-        $pb->loadData();
+    } elseif (isset($_POST['edit']) && Session::isLogged()) {
+        $kb->loadData();
         $inputPseudo=$_POST['pseudo'];
         $inputComment=$_POST['comment'];
         $inputSite=$_POST['site'];
         $ids=explode("_", $_SERVER['QUERY_STRING']);
-        $pb->editComment($id, $ids[1], $inputPseudo, $inputSite, $inputComment);
-        if (!$pb->writeData()) {
-            die("Can't write to ".$pb->file);
+        $kb->editComment($id, $ids[1], $inputPseudo, $inputSite, $inputComment);
+        if (!$kb->writeData()) {
+            die("Can't write to ".$kb->file);
         }
-
-        header('Location: '.MyTool::getUrl().'?'.$id);
-        exit();
+        MyTool::redirect(MyTool::getUrl().'?'.$id);
     } else {
         if (Session::isLogged()) {
-            $pb->loadData();
-            if (strpos($_SERVER['QUERY_STRING'], '_') === false) {
-                echo $pp->htmlPage(
-                    $pb->getTitle($id)
-                    . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
-                    $pp->entryPage($pb, $id)
-                );
-            } else {
+            if (strpos($_SERVER['QUERY_STRING'], '_') !== false) {
                 $ids=explode("_", $_SERVER['QUERY_STRING']);
-                $entry = $pb->getEntry($id);;
                 if (!empty($entry['comments'][$ids[1]])) {
-                    echo $pp->htmlPage(
-                        $pb->getTitle($id)
-                        . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
-                        $pp->entryPage(
-                            $pb,
-                            $id,
-                            0,
-                            $entry['comments'][$ids[1]][0],
-                            $entry['comments'][$ids[1]][1],
-                            $entry['comments'][$ids[1]][2]
-                        )
-                    );
-                } else {
-                    echo $pp->htmlPage(
-                        $pb->getTitle($id)
-                        . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
-                        $pp->entryPage($pb, $id)
-                    );
+                    $pb->assign('inputpseudo', $entry['comments'][$ids[1]][0]);
+                    $pb->assign('inputsite', $entry['comments'][$ids[1]][1]);
+                    $pb->assign('inputcomment', $entry['comments'][$ids[1]][2]);
                 }
-            }
-            exit();
-        } else {
-            if ($pc->cache && $pp->loadCachePage(CACHE_DIR.'/'.$id.'.html')) {
-                exit();
             } else {
-                $pb->loadData();
-                if ($pc->cache && $pb->getEntry($id)) {
-                    $page = $pp->htmlPage(
-                        strip_tags(MyTool::formatText($pb->pc->title)),
-                        $pp->entryPage($pb, $id, 1)
-                    );
-                    $pp->writeCachePage(CACHE_DIR.'/'.$id.'.html', $page);
-                    echo $page;
-                    exit();
-                } else {
-                    echo $pp->htmlPage(
-                        $pb->getTitle($id)
-                        . " - " . strip_tags(MyTool::formatText($pb->pc->title)),
-                        $pp->entryPage($pb, $id)
-                    );
-                    exit();
-                }
+                $pb->assign('inputpseudo', $kbc->login);
+                $pb->assign('inputsite', $kbc->site);
             }
+        } else {
+            $pb->assign('inputpseudo', isset($_SESSION['pseudo']) ? $_SESSION['pseudo'] : '');
+            $pb->assign('inputsite', isset($_SESSION['site']) ? $_SESSION['site'] : '');
         }
     }
+    if (empty($_SESSION['captcha']) || isset($_SESSION['captcha']) && $_SESSION['captcha']!='human') {
+        if (Session::isLogged()) {
+            $_SESSION['captcha'] = 'human';
+        } else {
+            $captcha = new Captcha();
+            $_SESSION['captcha'] = $captcha->generateString();
+            $pb->assign('captcha', $captcha->convertString($_SESSION['captcha']));
+        }
+    }
+
+    $pb->assign('pagetitle', $entry['title'].' - '.strip_tags($kbc->title));
+    $pb->assign('menu', $kb->getEntry('menu'));
+    $pb->assign('extra', $kb->getEntry('extra'));
+    $pb->assign('dateformat', $kbc->dateformat);
+    $pb->assign('id', $id);
+    $pb->assign('entry', $entry);
+    $pb->renderPage('entry');
 }
