@@ -108,20 +108,38 @@ class MyTool
             => '<del>$1</del>',
             '/\[u\](.+?)\[\/u\]/is'
             => '<span style="text-decoration: underline;">$1</span>',
-            '/\[url\](.+?)\[\/url]/is'
-            => '<a href="$1">$1</a>',
-            '/\[url=(\w+:\/\/[^\]]+)\](.+?)\[\/url]/is'
-            => '<a href="$1">$2</a>',
             '/\[quote\](.+?)\[\/quote\]/is'
             => '<blockquote>$1</blockquote>',
             '/\[code\](.+?)\[\/code\]/is'
             => '<code>$1</code>',
-            '/\[([^[]+)\|([^[]+)\]/is'
-            => '<a href="$2">$1</a>'
             );
         $text = preg_replace(
             array_keys($replace),
             array_values($replace),
+            $text
+        );
+        $text = preg_replace_callback(
+            '/\[url\](.+?)\[\/url]/is',
+            create_function(
+                '$matches',
+                'return MyTool::formatUrl($matches[1],$matches[1]);'
+            ),
+            $text
+        );
+        $text = preg_replace_callback(
+            '/\[url=(\w+:\/\/[^\]]+)\](.+?)\[\/url]/is',
+            create_function(
+                '$matches',
+                'return MyTool::formatUrl($matches[1],$matches[2]);'
+            ),
+            $text
+        );
+        $text = preg_replace_callback(
+            '/\[([^[]+)\|([^[]+)\]/is',
+            create_function(
+                '$matches',
+                'return MyTool::formatUrl($matches[2],$matches[1]);'
+            ),
             $text
         );
 
@@ -153,13 +171,18 @@ class MyTool
             ),
             $text
         );
-        $text = preg_replace('/<br \/>/is', '', $text);
-
-        $text = preg_replace(
+        $text = preg_replace_callback(
             '#(^|\s)([a-z]+://([^\s\w/]?[\w/])*)(\s|$)#im',
-            '\\1<a href="\\2">\\2</a>\\4',
+            create_function(
+                '$matches',
+                'return "$matches[1]".MyTool::formatUrl($matches[2],$matches[2])."$matches[4]";'
+            ),
             $text
         );
+
+
+        $text = preg_replace('/<br \/>/is', '', $text);
+
         $text = preg_replace(
             '#(^|\s)wp:?([a-z]{2}|):([\w]+)#im',
             '\\1<a href="http://\\2.wikipedia.org/wiki/\\3">\\3</a>',
@@ -176,6 +199,16 @@ class MyTool
         $text = nl2br($text);
 
         return $text;
+    }
+
+    /**
+     * Returns valid Url for w3.org
+     *
+     * @return string formated Url
+     */
+    public static function formatUrl($link, $text)
+    {
+        return '<a href="'.htmlspecialchars($link).'">'.htmlspecialchars($text).'</a>';
     }
 
     /**

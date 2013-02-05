@@ -1018,7 +1018,7 @@ echo '<?xml version="1.0" encoding="UTF-8" ?>';
             <label for="comment">Comment</label><br>
             <textarea id="comment" name="comment" rows="10"<?php echo ((empty($inputcomment) and isset($_POST['comment']))?' style="border-color:red">':'>'); echo (isset($inputcomment)?$inputcomment:''); ?></textarea>
             <p>
-              <button onclick="insertTag(\'[b]\',\'[/b]\',\'comment\');" title="bold" type="button"><strong>b</strong></button><button onclick="insertTag(\'[i]\',\'[/i]\',\'comment\');" title="italic" type="button"><em>i</em></button><button onclick="insertTag(\'[u]\',\'[/u]\',\'comment\');" title="underline" type="button"><span style="text-decoration:underline;">u</span></button><button onclick="insertTag(\'[s]\',\'[/s]\',\'comment\');" title="strike through" type="button"><del>s</del></button><button onclick="insertTag(\'[\',\'|http://]\',\'comment\');" title="link" type="button">url</button><button onclick="insertTag(\'[quote]\',\'[/quote]\',\'comment\');" title="quote" type="button">&#171;&nbsp;&#187;</button><button onclick="insertTag(\'[code]\',\'[/code]\',\'comment\');" title="code" type="button">&#60;&#62;</button>
+              <button onclick="insertTag('[b]','[/b]','comment');" title="bold" type="button"><strong>b</strong></button><button onclick="insertTag('[i]','[/i]','comment');" title="italic" type="button"><em>i</em></button><button onclick="insertTag('[u]','[/u]','comment');" title="underline" type="button"><span style="text-decoration:underline;">u</span></button><button onclick="insertTag('[s]','[/s]','comment');" title="strike through" type="button"><del>s</del></button><button onclick="insertTag('[','|http://]','comment');" title="link" type="button">url</button><button onclick="insertTag('[quote]','[/quote]','comment');" title="quote" type="button">&#171;&nbsp;&#187;</button><button onclick="insertTag('[code]','[/code]','comment');" title="code" type="button">&#60;&#62;</button>
             </p><br>
 
         <?php
@@ -1559,20 +1559,38 @@ class MyTool
             => '<del>$1</del>',
             '/\[u\](.+?)\[\/u\]/is'
             => '<span style="text-decoration: underline;">$1</span>',
-            '/\[url\](.+?)\[\/url]/is'
-            => '<a href="$1">$1</a>',
-            '/\[url=(\w+:\/\/[^\]]+)\](.+?)\[\/url]/is'
-            => '<a href="$1">$2</a>',
             '/\[quote\](.+?)\[\/quote\]/is'
             => '<blockquote>$1</blockquote>',
             '/\[code\](.+?)\[\/code\]/is'
             => '<code>$1</code>',
-            '/\[([^[]+)\|([^[]+)\]/is'
-            => '<a href="$2">$1</a>'
             );
         $text = preg_replace(
             array_keys($replace),
             array_values($replace),
+            $text
+        );
+        $text = preg_replace_callback(
+            '/\[url\](.+?)\[\/url]/is',
+            create_function(
+                '$matches',
+                'return MyTool::formatUrl($matches[1],$matches[1]);'
+            ),
+            $text
+        );
+        $text = preg_replace_callback(
+            '/\[url=(\w+:\/\/[^\]]+)\](.+?)\[\/url]/is',
+            create_function(
+                '$matches',
+                'return MyTool::formatUrl($matches[1],$matches[2]);'
+            ),
+            $text
+        );
+        $text = preg_replace_callback(
+            '/\[([^[]+)\|([^[]+)\]/is',
+            create_function(
+                '$matches',
+                'return MyTool::formatUrl($matches[2],$matches[1]);'
+            ),
             $text
         );
 
@@ -1597,13 +1615,18 @@ class MyTool
             ),
             $text
         );
-        $text = preg_replace('/<br \/>/is', '', $text);
-
-        $text = preg_replace(
+        $text = preg_replace_callback(
             '#(^|\s)([a-z]+://([^\s\w/]?[\w/])*)(\s|$)#im',
-            '\\1<a href="\\2">\\2</a>\\4',
+            create_function(
+                '$matches',
+                'return "$matches[1]".MyTool::formatUrl($matches[2],$matches[2])."$matches[4]";'
+            ),
             $text
         );
+
+
+        $text = preg_replace('/<br \/>/is', '', $text);
+
         $text = preg_replace(
             '#(^|\s)wp:?([a-z]{2}|):([\w]+)#im',
             '\\1<a href="http://\\2.wikipedia.org/wiki/\\3">\\3</a>',
@@ -1620,6 +1643,11 @@ class MyTool
         $text = nl2br($text);
 
         return $text;
+    }
+
+    public static function formatUrl($link, $text)
+    {
+        return '<a href="'.htmlspecialchars($link).'">'.htmlspecialchars($text).'</a>';
     }
 
     public static function getUrl()
