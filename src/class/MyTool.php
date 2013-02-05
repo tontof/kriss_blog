@@ -204,6 +204,9 @@ class MyTool
     /**
      * Returns valid Url for w3.org
      *
+     * @param string $link URL
+     * @param string $text anchor text
+     *
      * @return string formated Url
      */
     public static function formatUrl($link, $text)
