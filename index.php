@@ -1313,7 +1313,7 @@ class Blog
                 $ecomments[$time]['website'] = $entry['comments'][$time][1];
                 $content = $entry['comments'][$time][2];
                 // convert relative url in comments
-                $ecomments[$time]['content'] = preg_replace('/\[([^[]+)\|([^[]+)\]/is', '[$1|'.$link.'$2]', $content);
+                $ecomments[$time]['content'] = preg_replace('/@\[([^[]+)\|([^[]+)\]/is', '@[$1|'.$link.'$2]', $content);
                 $ecomments[$time]['link'] = $link.'#'.$i;
                 $comments += $ecomments;
                 $i++;
