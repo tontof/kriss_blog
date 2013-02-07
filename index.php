@@ -1616,7 +1616,7 @@ class MyTool
             $text
         );
         $text = preg_replace_callback(
-            '#(^|\s)([a-z]+://([^\s\w/]?[\w/])*)(\s|$)#im',
+            '#(^|\s)([a-z]+://([^\s])*)(\s|$)#im',
             create_function(
                 '$matches',
                 'return "$matches[1]".MyTool::formatUrl($matches[2],$matches[2])."$matches[4]";'
