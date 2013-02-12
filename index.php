@@ -2003,7 +2003,7 @@ if (isset($_GET['login'])) {
         }
         $kbc->hydrate($_POST);
 
-        if (!$kbc->write(CONFIG_FILE)) {
+        if (!$kbc->write()) {
             die("Can't write to ".CONFIG_FILE);
         }
         MyTool::redirect();
@@ -2175,6 +2175,7 @@ if (isset($_GET['login'])) {
         foreach ($entries as $id => $entry) {
             $entries[$id]['title']=$entries[$id]['author'];
         }
+        $pb->assign('blogtitle', $kbc->title.' comments');
         $pb->assign('entries', $entries);
         $pb->renderPage('rss');
     } else {
