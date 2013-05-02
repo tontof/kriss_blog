@@ -101,7 +101,7 @@ class Captcha
      *
      * @return string $str generated string
      */
-    public function generateString($len = 5)
+    public function generateString($len = 7)
     {
         $i = 0;
         $str = '';

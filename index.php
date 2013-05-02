@@ -1462,7 +1462,7 @@ class Captcha
         }
     }
 
-    public function generateString($len = 5)
+    public function generateString($len = 7)
     {
         $i = 0;
         $str = '';
