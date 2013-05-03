@@ -330,7 +330,7 @@ if (isset($_GET['login'])) {
         }
         if (isset($_POST['captcha']) && empty($_POST['message'])) {
             $inputCaptcha=strtoupper(htmlspecialchars($_POST['captcha']));
-            if ($_SESSION['captcha']==$inputCaptcha) {
+            if ($_SESSION['captcha'] == $inputCaptcha && !empty($_SESSION['captcha'])) {
                 $_SESSION['captcha'] = 'human';
             }
         }

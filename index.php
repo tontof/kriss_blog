@@ -1405,6 +1405,7 @@ class Captcha
     public $alphabetFont;
     public $colFont = 0;
     public $rowFont = 0;
+    public $len = 5;
 
     public function __construct(
         $alphaFont = array(
@@ -1445,10 +1446,12 @@ class Captcha
             '8' => " __ /  \\\\__//  \\\\__/",
             '9' => " __ /  \\\\__/  /  /  ",
         ),
-        $rowFont = 5
+        $rowFont = 5,
+        $len = 5
     )
     {
         $this->alphabetFont = $alphaFont;
+        $this->len = $len;
 
         $keys = array_keys($this->alphabetFont);
 
@@ -1462,8 +1465,9 @@ class Captcha
         }
     }
 
-    public function generateString($len = 7)
+    public function generateString()
     {
+        $len = $this->len;
         $i = 0;
         $str = '';
         while ($i < $len) {
@@ -2221,7 +2225,7 @@ if (isset($_GET['login'])) {
         }
         if (isset($_POST['captcha']) && empty($_POST['message'])) {
             $inputCaptcha=strtoupper(htmlspecialchars($_POST['captcha']));
-            if ($_SESSION['captcha']==$inputCaptcha) {
+            if ($_SESSION['captcha'] == $inputCaptcha && !empty($_SESSION['captcha'])) {
                 $_SESSION['captcha'] = 'human';
             }
         }

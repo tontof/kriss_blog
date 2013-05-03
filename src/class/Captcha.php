@@ -14,6 +14,7 @@ class Captcha
     public $alphabetFont;
     public $colFont = 0;
     public $rowFont = 0;
+    public $len = 5;
 
     /**
      * Constructor
@@ -77,10 +78,12 @@ class Captcha
             '8' => " __ /  \\\\__//  \\\\__/",
             '9' => " __ /  \\\\__/  /  /  ",
         ),
-        $rowFont = 5
+        $rowFont = 5,
+        $len = 5
     )
     {
         $this->alphabetFont = $alphaFont;
+        $this->len = $len;
 
         $keys = array_keys($this->alphabetFont);
 
@@ -101,8 +104,9 @@ class Captcha
      *
      * @return string $str generated string
      */
-    public function generateString($len = 7)
+    public function generateString()
     {
+        $len = $this->len;
         $i = 0;
         $str = '';
         while ($i < $len) {
