@@ -308,9 +308,10 @@ if (isset($_GET['login'])) {
     $kb->loadData();
 
     if (preg_match("/^(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})\/(\d{2})\/(\d{2})-(.*)$/", $_SERVER['QUERY_STRING'], $matches) === 1) {
-        $id=strtotime($matches[1].'/'.$matches[2].'/'.$matches[3].' '.$matches[4].':'.$matches[5].':'.$matches[6]);
+        $id = strtotime($matches[1].'/'.$matches[2].'/'.$matches[3].' '.$matches[4].':'.$matches[5].':'.$matches[6]);
     } else {
-        $id = (int) $_SERVER['QUERY_STRING'];
+        $ids=explode('_', $_SERVER['QUERY_STRING']);
+        $id = $ids[0];
     }
 
     $entry = $kb->getEntry($id);
@@ -365,7 +366,7 @@ if (isset($_GET['login'])) {
         $inputPseudo=$_POST['pseudo'];
         $inputComment=$_POST['comment'];
         $inputSite=$_POST['site'];
-        $ids=explode("_", $_SERVER['QUERY_STRING']);
+        $ids=explode('_', $_SERVER['QUERY_STRING']);
         $kb->editComment($id, $ids[1], $inputPseudo, $inputSite, $inputComment);
         if (!$kb->writeData()) {
             die("Can't write to ".$kb->file);
@@ -374,7 +375,7 @@ if (isset($_GET['login'])) {
     } else {
         if (Session::isLogged()) {
             if (strpos($_SERVER['QUERY_STRING'], '_') !== false) {
-                $ids=explode("_", $_SERVER['QUERY_STRING']);
+                $ids=explode('_', $_SERVER['QUERY_STRING']);
                 if (!empty($entry['comments'][$ids[1]])) {
                     $pb->assign('inputpseudo', $entry['comments'][$ids[1]][0]);
                     $pb->assign('inputsite', $entry['comments'][$ids[1]][1]);
