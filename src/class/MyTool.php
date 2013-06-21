@@ -377,6 +377,7 @@ class MyTool
         $slug = html_entity_decode($slug, ENT_QUOTES, 'UTF-8');
         // Strip off spaces and non-alpha-numeric
         $slug = preg_replace('/[\s\W]+/', '-', $slug);
+        $slug = str_replace('_', '-', $slug);
         // Strip off the starting hyphens
         $slug = preg_replace('/^[\-]+/', '', $slug);
         // Strip off the ending hyphens
