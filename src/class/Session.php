@@ -55,7 +55,11 @@ class Session
         if (dirname($_SERVER['SCRIPT_NAME'])!='/') {
             $cookiedir = dirname($_SERVER["SCRIPT_NAME"]).'/';
         }
-        session_set_cookie_params($cookie['lifetime'], $cookiedir);
+        $ssl = false;
+        if (isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] == "on") {
+            $ssl = true;
+        }
+        session_set_cookie_params($cookie['lifetime'], $cookiedir, $cookie['domain'], $ssl);
         // Use cookies to store session.
         ini_set('session.use_cookies', 1);
         // Force cookies for session  (phpsessionID forbidden in URL)
@@ -201,7 +205,7 @@ class Session
         if (self::$banFile !== '') {
             $ip = $_SERVER["REMOTE_ADDR"];
             $gb = $GLOBALS['IPBANS'];
-            
+
             if (!isset($gb['FAILURES'][$ip])) {
                 $gb['FAILURES'][$ip] = 0;
             }
@@ -209,7 +213,7 @@ class Session
             if ($gb['FAILURES'][$ip] > (self::$banAfter - 1)) {
                 $gb['BANS'][$ip]= time() + self::$banDuration;
             }
-            
+
             $GLOBALS['IPBANS'] = $gb;
             file_put_contents(self::$banFile, "<?php\n\$GLOBALS['IPBANS']=".var_export($gb, true).";\n?>");
         }
@@ -259,10 +263,10 @@ class Session
                     unset($gb['FAILURES'][$ip]);
                     unset($gb['BANS'][$ip]);
                     file_put_contents(self::$banFile, "<?php\n\$GLOBALS['IPBANS']=".var_export($gb, true).";\n?>");
-                    
+
                     return true; // Ban has expired, user can login.
                 }
-                
+
                 return false; // User is banned.
             }
         }
