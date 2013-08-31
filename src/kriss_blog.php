@@ -30,6 +30,7 @@ define('LOCALE', 'locale');
 // TODO : remove in version 7
 define('MENU_FILE', DATA_DIR.'/menu.php');
 define('DATA_FILE', DATA_DIR.'/data.php');
+define('BAN_FILE', DATA_DIR.'/ipbans.php');
 define('CONFIG_FILE', DATA_DIR.'/config.php');
 
 define('STYLE_FILE', 'style.css');
@@ -51,6 +52,8 @@ function __autoload($className)
 // Check if php version is correct
 MyTool::initPHP();
 // Initialize Session
+Session::$sessionName = 'kriss';
+Session::$banFile = BAN_FILE;
 Session::init();
 // Create Page Builder
 $pb = new PageBuilder('BlogPage');
