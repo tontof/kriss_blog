@@ -256,7 +256,7 @@ class BlogPage
     public static $var = array();
     private static $_instance;
 
-    public function init($var)
+    public static function init($var)
     {
         BlogPage::$var = $var;
     }
@@ -1858,7 +1858,7 @@ class Session
         if (isset($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] == "on") {
             $ssl = true;
         }
-        session_set_cookie_params($cookie['lifetime'], $cookiedir, $cookie['domain'], $ssl);
+        session_set_cookie_params($cookie['lifetime'], $cookiedir, $_SERVER['HTTP_HOST'], $ssl);
         // Use cookies to store session.
         ini_set('session.use_cookies', 1);
         // Force cookies for session  (phpsessionID forbidden in URL)
@@ -1929,6 +1929,9 @@ class Session
         }
         // User accessed a page : Update his/her session expiration date.
         $_SESSION['expires_on'] = time() + self::$inactivityTimeout;
+        if (!empty($_SESSION['longlastingsession'])) {
+                $_SESSION['expires_on'] += $_SESSION['longlastingsession'];
+        }
 
         return true;
     }

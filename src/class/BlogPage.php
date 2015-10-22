@@ -12,7 +12,7 @@ class BlogPage
      *
      * @param array $var list of useful variables for template
      */
-    public function init($var)
+    public static function init($var)
     {
         BlogPage::$var = $var;
     }
