@@ -47,14 +47,14 @@ class MyTool
 
         error_reporting(E_ALL);
 
-        if (get_magic_quotes_gpc()) {
-            $_POST = array_map(array(self::$_instance, 'stripslashesDeep'), $_POST);
-            $_GET = array_map(array(self::$_instance, 'stripslashesDeep'), $_GET);
-            $_COOKIE = array_map(array(self::$_instance, 'stripslashesDeep'), $_COOKIE);
+        if (version_compare(PHP_VERSION, '7.4', '<')) {
+            if (get_magic_quotes_gpc()) {
+                $_POST = array_map(array(self::$_instance, 'stripslashesDeep'), $_POST);
+                $_GET = array_map(array(self::$_instance, 'stripslashesDeep'), $_GET);
+                $_COOKIE = array_map(array(self::$_instance, 'stripslashesDeep'), $_COOKIE);
+            }
         }
-
-        ob_start('ob_gzhandler');
-        register_shutdown_function('ob_end_flush');
+        ob_start();
     }
 
     /**
