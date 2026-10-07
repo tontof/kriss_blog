@@ -33,7 +33,7 @@ class BlogConf
 
     // Blog locale
     public $locale = "en_GB";
-    public $dateformat = "%A %d %B %Y - %H:%M";
+    public $dateformat = "A d B Y - H:i";
 
     // Number of entries to display per page
     public $bypage = "10";
@@ -589,7 +589,7 @@ a:hover {
         <legend>Language information</legend>
         <label>- Locale (eg. en_GB or fr_FR)</label><br>
         <input type="text" maxlength="5" name="locale" value="<?php echo $kbclocale; ?>" /><br>
-        <label>- Date format (<a href="http://php.net/strftime">strftime</a> format)</label><br>
+        <label>- Date format (<a href="https://www.php.net/manual/en/function.date.php">date</a> format)</label><br>
         <input type="text" name="dateformat" value="<?php echo $kbcdateformat; ?>"><br>
       </fieldset>
       <fieldset>
@@ -821,7 +821,7 @@ echo '<?xml version="1.0" encoding="UTF-8" ?>';
           <?php
               if (is_numeric($id)) {
           ?>
-        <h4 class="subtitle"><?php echo ((Session::isLogged() and $content['private'])?'(<em>private</em>)':'')?> <?php echo utf8_encode(strftime($dateformat, $id)) ?></h4>
+        <h4 class="subtitle"><?php echo ((Session::isLogged() and $content['private'])?'(<em>private</em>)':'')?> <?php echo date($dateformat, $id) ?></h4>
           <?php
               }
           ?>
@@ -923,7 +923,7 @@ echo '<?xml version="1.0" encoding="UTF-8" ?>';
       <?php
           if (is_numeric($id)) {
       ?>
-      <h4 class="subtitle"><?php echo utf8_encode(strftime($dateformat, $id)); ?></h4>
+      <h4 class="subtitle"><?php echo date($dateformat, $id); ?></h4>
       <?php
           }
       ?>
@@ -984,7 +984,7 @@ echo '<?xml version="1.0" encoding="UTF-8" ?>';
             <strong>Preview</strong>
           <?php
               } else {
-                  echo utf8_encode(strftime($dateformat, $key));
+                  echo date($dateformat, $key);
                   if (Session::isLogged()) {
           ?>
             | <a href="?<?php echo $id; ?>_<?php echo $key; ?>#new_comment" class="admin">Edit</a>
@@ -1307,7 +1307,7 @@ class Blog
         $comments = array();
         foreach ($this->_data as $id => $entry) {
             $i = 1;
-            foreach (array_keys($entry["comments"]) as $time) {
+            foreach (array_keys($entry["comments"]??[]) as $time) {
                 $link = MyTool::getUrl().'?'.MyTool::urlize($id, $entry['title']);
                 $ecomments = array();
                 $ecomments[$time]['author'] = $entry['comments'][$time][0];
@@ -1576,26 +1576,23 @@ class MyTool
         );
         $text = preg_replace_callback(
             '/\[url\](.+?)\[\/url]/is',
-            create_function(
-                '$matches',
-                'return MyTool::formatUrl($matches[1],$matches[1]);'
-            ),
+              function($matches) {
+                  return MyTool::formatUrl($matches[1],$matches[1]);
+              },
             $text
         );
         $text = preg_replace_callback(
             '/\[url=(\w+:\/\/[^\]]+)\](.+?)\[\/url]/is',
-            create_function(
-                '$matches',
-                'return MyTool::formatUrl($matches[1],$matches[2]);'
-            ),
+            function($matches) {
+                return MyTool::formatUrl($matches[1],$matches[2]);
+            },
             $text
         );
         $text = preg_replace_callback(
             '/\[([^[]+)\|([^[]+)\]/is',
-            create_function(
-                '$matches',
-                'return MyTool::formatUrl($matches[2],$matches[1]);'
-            ),
+            function($matches) {
+                return MyTool::formatUrl($matches[2],$matches[1]);
+            },
             $text
         );
 
@@ -1606,26 +1603,23 @@ class MyTool
     {
         $text = preg_replace_callback(
             '/<code_html>(.*?)<\/code_html>/is',
-            create_function(
-                '$matches',
-                'return htmlspecialchars($matches[1]);'
-            ),
+            function($matches) {
+                return htmlspecialchars($matches[1]);
+            },
             $text
         );
         $text = preg_replace_callback(
             '/<code_php>(.*?)<\/code_php>/is',
-            create_function(
-                '$matches',
-                'return highlight_string("<?php $matches[1] ?>", true);'
-            ),
+            function($matches) {
+               return highlight_string("<?php $matches[1] ?>", true);
+            },
             $text
         );
         $text = preg_replace_callback(
             '#(^|\s)([a-z]+://([^\s])*)(\s|$)#im',
-            create_function(
-                '$matches',
-                'return "$matches[1]".MyTool::formatUrl($matches[2],$matches[2])."$matches[4]";'
-            ),
+            function($matches) {
+                return "$matches[1]".MyTool::formatUrl($matches[2],$matches[2])."$matches[4]";
+            },
             $text
         );
 
@@ -1770,7 +1764,7 @@ class MyTool
 
     public static function urlize($time, $title)
     {
-        return strftime('%Y/%m/%d/%H/%M/%S-', $time).MyTool::slugify($title);
+        return date('Y/m/d/H/i/s-', $time).MyTool::slugify($title);
     }
 
 }
@@ -2042,7 +2036,6 @@ class Session
         return true; // User is not banned.
     }
 }
-
 // Check if php version is correct
 MyTool::initPHP();
 // Initialize Session
@@ -2397,7 +2390,7 @@ if (isset($_GET['login'])) {
         }
     }
 
-    $pb->assign('pagetitle', $entry['title'].' - '.strip_tags($kbc->title));
+    $pb->assign('pagetitle', ($entry['title']??'').' - '.strip_tags($kbc->title));
     $pb->assign('menu', $kb->getEntry('menu'));
     $pb->assign('extra', $kb->getEntry('extra'));
     $pb->assign('dateformat', $kbc->dateformat);
